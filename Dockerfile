@@ -21,8 +21,10 @@ RUN rm -rf /usr/local/go \
     && rm /tmp/go${GO_VERSION}.linux-amd64.tar.gz
 
 # Set Go environment variables
-ENV GOPATH=/go
-ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
+ENV PATH=$PATH:/usr/local/go/bin
+
+# Install Delve debugger
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 WORKDIR /workspace
 

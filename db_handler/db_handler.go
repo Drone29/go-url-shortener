@@ -14,6 +14,7 @@ import (
 type DBClient struct {
 	handle  *mongo.Client
 	context context.Context
+	cancel  context.CancelFunc
 }
 
 var (
@@ -23,18 +24,22 @@ var (
 // DBClient methods
 
 func (client *DBClient) Connect(host string, port int) error {
+
 	ctx, cancel := context.WithTimeout(context.Background(), db_timeout*time.Second)
-	defer cancel()
+
 	opts := options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%d", host, port))
 	handle, err := mongo.Connect(ctx, opts)
 	if err != nil {
+		cancel()
 		return err
 	}
 	if err := handle.Ping(ctx, nil); err != nil {
+		cancel()
 		return err
 	}
 	client.context = ctx
 	client.handle = handle
+	client.cancel = cancel
 	return nil
 }
 

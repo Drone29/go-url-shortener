@@ -10,6 +10,13 @@
 	"runArgs": [
 		"--rm"
 	],
-	// start mongod after container creation
-	"postStartCommand": "mongod"
+	// do not override mongod cmd
+	"overrideCommand": false,
+	"customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go"
+      ]
+    }
+  }
 }

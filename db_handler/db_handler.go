@@ -32,6 +32,35 @@ var (
 	db_timeout time.Duration = 30
 )
 
+// helpers
+
+func createFilterWithID(id string) (bson.M, error) {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ID format: %v", err)
+	}
+
+	// filter to query by id
+	return bson.M{"_id": objID}, nil
+}
+
+func convertBsonToJson(bson_doc bson.M, result any) error {
+	jsonData, err := json.Marshal(bson_doc)
+	if err != nil {
+		return fmt.Errorf("failed to convert doc to JSON: %v", err)
+	}
+	return json.Unmarshal(jsonData, &result)
+}
+
+func bsonFilterFromString(filter string) (bson.M, error) {
+	var bson_filter bson.M
+	err := json.Unmarshal([]byte(filter), &bson_filter)
+	if err != nil {
+		return nil, err
+	}
+	return bson_filter, nil
+}
+
 // DBClient methods
 
 // disconnect from db
@@ -134,14 +163,56 @@ func (collection *DBCollection) InsertOne(doc interface{}) (id string, err error
 	return id, err
 }
 
-func createFilterWithID(id string) (bson.M, error) {
-	objID, err := primitive.ObjectIDFromHex(id)
+// find doc with filter
+func (collection *DBCollection) FindOne(filter string, result any) error {
+	var doc bson.M
+	bson_filter, err := bsonFilterFromString(filter)
 	if err != nil {
-		return nil, fmt.Errorf("invalid ID format: %v", err)
+		return fmt.Errorf("invalid JSON filter: %v", err)
+	}
+	// Handle _id conversion (if it exists in the filter)
+	if id, ok := bson_filter["_id"].(string); ok {
+		// Convert the string _id to ObjectID
+		objectID, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return fmt.Errorf("invalid _id format: %v", err)
+		}
+		bson_filter["_id"] = objectID // Replace string _id with ObjectID
+	}
+	err = collection.mongo_collection.FindOne(*collection.context, bson_filter).Decode(&doc)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return fmt.Errorf("no docs found")
+		}
+		return fmt.Errorf("failed to find docs: %v", err)
 	}
 
-	// filter to query by id
-	return bson.M{"_id": objID}, nil
+	return convertBsonToJson(doc, &result)
+}
+
+// find all with filter
+func (collection *DBCollection) Find(filter string, result any) error {
+	bson_filter, err := bsonFilterFromString(filter)
+	if err != nil {
+		return fmt.Errorf("invalid JSON filter: %v", err)
+	}
+	var bsonD bson.D
+	for key, value := range bson_filter {
+		bsonD = append(bsonD, bson.E{Key: key, Value: value})
+	}
+	cursor, err := collection.mongo_collection.Find(*collection.context, bsonD)
+	if err != nil {
+		return fmt.Errorf("failed to find any docs: %v", err)
+	}
+
+	defer cursor.Close(*collection.context)
+
+	// Decode the results into the result slice
+	if err := cursor.All(*collection.context, result); err != nil {
+		return fmt.Errorf("failed to decode documents: %v", err)
+	}
+
+	return nil
 }
 
 // find doc by id, and store into result
@@ -163,15 +234,11 @@ func (collection *DBCollection) FindByID(id string, result any) error {
 		return fmt.Errorf("failed to find doc %s: %v", id, err)
 	}
 
-	jsonData, err := json.Marshal(doc)
-	if err != nil {
-		return fmt.Errorf("failed to convert doc to JSON: %v", err)
-	}
-	return json.Unmarshal(jsonData, &result)
+	return convertBsonToJson(doc, &result)
 }
 
 // delete doc by id
-func (collection *DBCollection) Delete(id string) error {
+func (collection *DBCollection) DeleteByID(id string) error {
 	// filter to query by id
 	filter, err := createFilterWithID(id)
 	if err != nil {

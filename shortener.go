@@ -7,6 +7,7 @@ import (
 )
 
 type TestData struct {
+	ID    string `json:"_id,omitempty" bson:"_id,omitempty"`
 	Name  string `json:"name"`
 	Value int    `json:"value"`
 }
@@ -35,19 +36,26 @@ func main() {
 	// Test
 	doc := TestData{
 		Name:  "test",
-		Value: 1,
+		Value: 12,
 	}
+
+	collection.FindOne(`{"name": "test"}`, &doc)
+	var results []TestData
+	collection.Find(`{"name": "test"}`, &results)
+
+	new_doc := TestData{}
+
+	err = collection.FindOne(`{"_id": "67432bb50594852ba237d489"}`, &new_doc)
+	if err != nil {
+		log.Fatalf("Error obtaining doc from db: %v", err)
+	}
+	fmt.Printf("Successfully retrieved doc from db: %v", new_doc)
 
 	id, err := collection.InsertOne(doc)
 	if err != nil {
 		log.Fatalf("Error inserting doc into collection: %v", err)
 	}
 	fmt.Printf("Inserted successfully, id %s\n", id)
-
-	new_doc := TestData{
-		Name:  "test",
-		Value: 1,
-	}
 
 	// list ids
 	fmt.Println("Docs' IDs:")
@@ -60,13 +68,7 @@ func main() {
 		fmt.Println(id)
 	}
 
-	err = collection.FindByID(id, &new_doc)
-	if err != nil {
-		log.Fatalf("Error obtaining doc from db: %v", err)
-	}
-	fmt.Printf("Successfully retrieved doc from db: %v", new_doc)
-
-	err = collection.Delete(id)
+	err = collection.DeleteByID(id)
 	if err != nil {
 		log.Fatalf("Error deleting doc %s: %v", id, err)
 	}

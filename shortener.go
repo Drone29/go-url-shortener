@@ -8,8 +8,8 @@ import (
 
 type TestData struct {
 	ID    string `json:"_id,omitempty" bson:"_id,omitempty"`
-	Name  string `json:"name"`
-	Value int    `json:"value"`
+	Name  string `json:"name,omitempty" bson:"name,omitempty"`
+	Value int    `json:"value,omitempty" bson:"value,omitempty"`
 }
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 		Value: 12,
 	}
 
-	collection.FindOne(`{"name": "test"}`, &doc)
+	collection.FindOne(TestData{Name: "test"}, &doc)
 	var results []TestData
 	collection.Find(`{"name": "test"}`, &results)
 

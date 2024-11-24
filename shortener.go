@@ -23,15 +23,6 @@ func main() {
 		}
 	}()
 
-	// get db names
-	dbs, err := client.GetDBNames()
-	if err != nil {
-		log.Fatalf("Couldn't obtain db names: %v", err)
-	}
-	for _, db := range dbs {
-		fmt.Println(db)
-	}
-
 	if err := client.SelectDB("urls"); err != nil {
 		log.Fatalf("Error selecting db: %v", err)
 	}
@@ -51,12 +42,44 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error inserting doc into collection: %v", err)
 	}
-	fmt.Printf("Inserted successfully, id %s", id)
+	fmt.Printf("Inserted successfully, id %s\n", id)
 
-	new_doc, err := db_handler.FindByID[TestData](collection, id)
+	new_doc := TestData{
+		Name:  "test",
+		Value: 1,
+	}
+
+	// list ids
+	fmt.Println("Docs' IDs:")
+	ids, err := collection.ListDocsIDs()
+	if err != nil {
+		log.Fatalf("Error obtaining list of docs: %v", err)
+	}
+
+	for _, id := range ids {
+		fmt.Println(id)
+	}
+
+	err = collection.FindByID(id, &new_doc)
 	if err != nil {
 		log.Fatalf("Error obtaining doc from db: %v", err)
 	}
 	fmt.Printf("Successfully retrieved doc from db: %v", new_doc)
+
+	err = collection.Delete(id)
+	if err != nil {
+		log.Fatalf("Error deleting doc %s: %v", id, err)
+	}
+
+	// list ids
+	fmt.Println("Docs' IDs:")
+	ids, err = collection.ListDocsIDs()
+	if err != nil {
+		log.Fatalf("Error obtaining list of docs: %v", err)
+	}
+
+	for _, id := range ids {
+		fmt.Println(id)
+	}
 
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"url-shortener/db_handler"
+	"url-shortener/http_handler"
 )
 
 type URLData struct {
@@ -30,9 +31,11 @@ func main() {
 		log.Fatalf("Error selecting db: %v", err)
 	}
 
-	collection, err := client.AddCollection("url_collection")
-	if err != nil {
-		log.Fatalf("Error adding collection: %v", err)
-	}
+	http_handler.Start(8080)
+
+	// collection, err := client.AddCollection("url_collection")
+	// if err != nil {
+	// 	log.Fatalf("Error adding collection: %v", err)
+	// }
 
 }

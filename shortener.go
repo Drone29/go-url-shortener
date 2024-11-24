@@ -1,15 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"url-shortener/db_handler"
 )
 
-type TestData struct {
-	ID    string `json:"_id,omitempty" bson:"_id,omitempty"`
-	Name  string `json:"name,omitempty" bson:"name,omitempty"`
-	Value int    `json:"value,omitempty" bson:"value,omitempty"`
+type URLData struct {
+	ID          string `json:"_id,omitempty" bson:"_id,omitempty"`
+	URL         string `json:"url,omitempty" bson:"url,omitempty"`
+	ShortCode   int    `json:"shortCode,omitempty" bson:"shortCode,omitempty"`
+	CreatedAt   string `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
+	UpdatedAt   string `json:"updatedAt,omitempty" bson:"updatedAt,omitempty"`
+	AccessCount int    `json:"accessCount,omitempty" bson:"accessCount,omitempty"`
 }
 
 func main() {
@@ -31,57 +33,6 @@ func main() {
 	collection, err := client.AddCollection("url_collection")
 	if err != nil {
 		log.Fatalf("Error adding collection: %v", err)
-	}
-
-	// Test
-	doc := TestData{
-		Name:  "test",
-		Value: 12,
-	}
-
-	collection.FindOne(TestData{Name: "test"}, &doc)
-	var results []TestData
-	collection.Find(`{"name": "test"}`, &results)
-
-	new_doc := TestData{}
-
-	err = collection.FindOne(`{"_id": "67432bb50594852ba237d489"}`, &new_doc)
-	if err != nil {
-		log.Fatalf("Error obtaining doc from db: %v", err)
-	}
-	fmt.Printf("Successfully retrieved doc from db: %v", new_doc)
-
-	id, err := collection.InsertOne(doc)
-	if err != nil {
-		log.Fatalf("Error inserting doc into collection: %v", err)
-	}
-	fmt.Printf("Inserted successfully, id %s\n", id)
-
-	// list ids
-	fmt.Println("Docs' IDs:")
-	ids, err := collection.ListDocsIDs()
-	if err != nil {
-		log.Fatalf("Error obtaining list of docs: %v", err)
-	}
-
-	for _, id := range ids {
-		fmt.Println(id)
-	}
-
-	err = collection.DeleteByID(id)
-	if err != nil {
-		log.Fatalf("Error deleting doc %s: %v", id, err)
-	}
-
-	// list ids
-	fmt.Println("Docs' IDs:")
-	ids, err = collection.ListDocsIDs()
-	if err != nil {
-		log.Fatalf("Error obtaining list of docs: %v", err)
-	}
-
-	for _, id := range ids {
-		fmt.Println(id)
 	}
 
 }

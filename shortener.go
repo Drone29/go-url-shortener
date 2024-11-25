@@ -1,21 +1,29 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"url-shortener/db_handler"
 	"url-shortener/http_handler"
+	"url-shortener/url_data"
 )
 
-type URLData struct {
-	ID          string `json:"_id,omitempty" bson:"_id,omitempty"`
-	URL         string `json:"url,omitempty" bson:"url,omitempty"`
-	ShortCode   int    `json:"shortCode,omitempty" bson:"shortCode,omitempty"`
-	CreatedAt   string `json:"createdAt,omitempty" bson:"createdAt,omitempty"`
-	UpdatedAt   string `json:"updatedAt,omitempty" bson:"updatedAt,omitempty"`
-	AccessCount int    `json:"accessCount,omitempty" bson:"accessCount,omitempty"`
-}
+type URLData = url_data.URLData
 
 func main() {
+
+	ud := URLData{
+		ID:        "12",
+		URL:       "https://12443",
+		ShortCode: "12345",
+	}
+	ud.IncludeAccessCountInJSON(true)
+	var ud_n URLData
+	fmt.Println(ud)
+	json.Unmarshal([]byte(`{"_id":"44","createdAt":"", "updatedAt":""}`), &ud_n)
+
+	fmt.Println(ud_n)
 
 	client, err := db_handler.Connect("localhost", 27017)
 	if err != nil {

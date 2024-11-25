@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"url-shortener/url_data"
+	"url-shortener/url_generator"
 )
 
 type URLData = url_data.URLData
@@ -20,9 +21,10 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/shorten", "/shorten/":
 		// TODO: store new record in the db
+		short_url := url_generator.GenerateShortURL(6)
 		// TODO: return http.StatusBadRequest in case of validation errors
 		w.WriteHeader(http.StatusCreated) //201
-		fmt.Fprintf(w, "Added new url to db\n")
+		fmt.Fprintf(w, "Added new url %s to db\n", short_url)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%s not found\n", r.URL.Path)

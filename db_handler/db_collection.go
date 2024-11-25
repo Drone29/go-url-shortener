@@ -2,7 +2,6 @@ package db_handler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -31,30 +30,9 @@ func (collection *DBCollection) GetName() string {
 func (collection *DBCollection) InsertOne(doc any) (id string, err error) {
 	var bsonDoc any
 	// convert doc to bson
-	switch d := doc.(type) {
-	case string, []byte:
-		// If `doc` is a JSON string/[]byte, parse it into a map
-		var temp map[string]any
-		var jsonData []byte
-		if str, ok := d.(string); ok {
-			jsonData = []byte(str)
-		} else {
-			jsonData = d.([]byte)
-		}
-		err = json.Unmarshal(jsonData, &temp)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse JSON: %v", err)
-		}
-		bsonDoc, err = bson.Marshal(temp)
-		if err != nil {
-			return "", fmt.Errorf("failed to convert JSON to BSON: %v", err)
-		}
-	default:
-		// already a struct that can be converted to bson
-		bsonDoc, err = bson.Marshal(d)
-		if err != nil {
-			return "", fmt.Errorf("failed to convert struct to BSON: %v", err)
-		}
+	bsonDoc, err = bson.Marshal(doc)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert struct to BSON: %v", err)
 	}
 
 	result, err := collection.mongo_collection.InsertOne(*collection.context, bsonDoc)

@@ -8,11 +8,11 @@ import (
 
 type URLData struct {
 	ID          string    `json:"_id,omitempty" bson:"_id,omitempty"`
-	URL         string    `json:"url" bson:"url"`
-	ShortCode   string    `json:"shortCode" bson:"shortCode"`
-	CreatedAt   time.Time `json:"-" bson:"createdAt"` // do not marshal json automatically
-	UpdatedAt   time.Time `json:"-" bson:"updatedAt"` // do not marshal json automatically
-	AccessCount int       `json:"accessCount" bson:"accessCount"`
+	URL         string    `json:"url" bson:"url,omitempty"`
+	ShortCode   string    `json:"shortCode" bson:"shortCode,omitempty"`
+	CreatedAt   time.Time `json:"-" bson:"createdAt,omitempty"` // do not marshal json automatically
+	UpdatedAt   time.Time `json:"-" bson:"updatedAt,omitempty"` // do not marshal json automatically
+	AccessCount int       `json:"accessCount" bson:"accessCount,omitempty"`
 	// control properties
 	include_access_count_in_json bool `json:"-" bson:"-"`
 }

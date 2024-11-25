@@ -14,7 +14,6 @@ type URLData = url_data.URLData
 func main() {
 
 	ud := URLData{
-		ID:        "12",
 		URL:       "https://12443",
 		ShortCode: "12345",
 	}
@@ -39,11 +38,14 @@ func main() {
 		log.Fatalf("Error selecting db: %v", err)
 	}
 
-	http_handler.Start(8080)
+	collection, err := client.GetCollection("url_collection")
+	if err != nil {
+		log.Fatalf("Error adding collection: %v", err)
+	}
 
-	// collection, err := client.AddCollection("url_collection")
-	// if err != nil {
-	// 	log.Fatalf("Error adding collection: %v", err)
-	// }
+	// collection.InsertOne(ud)
+	// collection.FindOne(ud, &ud)
+
+	http_handler.Start(8080, collection)
 
 }

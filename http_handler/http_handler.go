@@ -1,14 +1,19 @@
 package http_handler
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"url-shortener/db_handler"
 	"url-shortener/url_data"
-	"url-shortener/url_generator"
 )
 
 type URLData = url_data.URLData
+type DB = db_handler.DBCollection
+
+var db *DB
 
 // helpers
 func tokenizePath(path string) []string {
@@ -16,15 +21,51 @@ func tokenizePath(path string) []string {
 	return strings.Split(path, "/")
 }
 
+func readBody(w http.ResponseWriter, r *http.Request) []byte {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed reading request body", http.StatusInternalServerError)
+		return []byte{}
+	}
+	defer r.Body.Close()
+	return body
+}
+
 // register new url
 func handlePOST(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/shorten", "/shorten/":
-		// TODO: store new record in the db
-		short_url := url_generator.GenerateShortURL(6)
-		// TODO: return http.StatusBadRequest in case of validation errors
+		// read body
+		body := readBody(w, r)
+		url_json := struct {
+			URL string `json:"url"`
+		}{}
+		// convert body to json
+		// return http.StatusBadRequest in case of validation errors
+		if err := json.Unmarshal(body, &url_json); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+		}
+
+		record := URLData{
+			URL: url_json.URL,
+		}
+		// check if such record already exists
+		if err := db.FindOne(record, &record); err != nil {
+			http.Error(w, "Error accessing db", http.StatusInternalServerError)
+		}
+
+		if record.ID != "" {
+			// already exists
+			http.Error(w, "URL already exists", http.StatusNotModified)
+		}
+		// store new record in the db
+		id, err := db.InsertOne(record)
+		if err != nil {
+			http.Error(w, "Error accessing db", http.StatusInternalServerError)
+		}
+
 		w.WriteHeader(http.StatusCreated) //201
-		fmt.Fprintf(w, "Added new url %s to db\n", short_url)
+		fmt.Fprintf(w, "%s", id)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%s not found\n", r.URL.Path)
@@ -94,6 +135,7 @@ func handleStats(short_url string, w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Stats for url %s\n", short_url)
 }
 
+// handle http requests
 func shorten(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
@@ -109,8 +151,14 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Start(port int) {
+// start server
+func Start(port int, collection *DB) error {
+	if collection == nil {
+		return fmt.Errorf("db collection is nil")
+	}
+	db = collection
 	http.HandleFunc("/shorten", shorten)
 	http.HandleFunc("/shorten/", shorten)
 	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+	return nil
 }

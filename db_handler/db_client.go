@@ -55,8 +55,8 @@ func (client *DBClient) GetDBName() string {
 	return ""
 }
 
-// add collection
-func (client *DBClient) AddCollection(name string) (*DBCollection, error) {
+// get collection (create if doesn't exist)
+func (client *DBClient) GetCollection(name string) (*DBCollection, error) {
 	if client.db == nil {
 		return nil, errors.New("Unable to add collection " + name + ", DB is not selected")
 	}

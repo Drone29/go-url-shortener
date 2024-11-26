@@ -1,7 +1,6 @@
 package db_handler
 
 import (
-	"context"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,7 +12,6 @@ import (
 // MongoDB collection handler type
 type DBCollection struct {
 	mongo_collection *mongo.Collection
-	context          *context.Context
 }
 
 var ErrNoDocuments = mongo.ErrNoDocuments
@@ -36,8 +34,9 @@ func (collection *DBCollection) InsertOne(doc any) (id string, err error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to convert struct to BSON: %v", err)
 	}
-
-	result, err := collection.mongo_collection.InsertOne(*collection.context, bsonDoc)
+	ctx, cancel := getContext()
+	defer cancel()
+	result, err := collection.mongo_collection.InsertOne(ctx, bsonDoc)
 	if err == nil {
 		if objectID, ok := result.InsertedID.(primitive.ObjectID); ok {
 			id = objectID.Hex()
@@ -55,8 +54,9 @@ func (collection *DBCollection) FindOne(filter any, result any) error {
 	if err != nil {
 		return err
 	}
-
-	err = collection.mongo_collection.FindOne(*collection.context, bson_filter).Decode(&doc)
+	ctx, cancel := getContext()
+	defer cancel()
+	err = collection.mongo_collection.FindOne(ctx, bson_filter).Decode(&doc)
 	if err != nil {
 		return err
 	}
@@ -74,15 +74,17 @@ func (collection *DBCollection) Find(filter any, result any) error {
 	for key, value := range bson_filter {
 		bsonD = append(bsonD, bson.E{Key: key, Value: value})
 	}
-	cursor, err := collection.mongo_collection.Find(*collection.context, bsonD)
+	ctx, cancel := getContext()
+	defer cancel()
+	cursor, err := collection.mongo_collection.Find(ctx, bsonD)
 	if err != nil {
 		return err
 	}
 
-	defer cursor.Close(*collection.context)
+	defer cursor.Close(ctx)
 
 	// Decode the results into the result slice
-	if err := cursor.All(*collection.context, result); err != nil {
+	if err := cursor.All(ctx, result); err != nil {
 		return err
 	}
 
@@ -97,10 +99,11 @@ func (collection *DBCollection) FindByID(id string, result any) error {
 	if err != nil {
 		return fmt.Errorf("unable to create filter: %v", err)
 	}
-
+	ctx, cancel := getContext()
+	defer cancel()
 	// find doc
 	var doc bson.M
-	err = collection.mongo_collection.FindOne(*collection.context, filter).Decode(&doc)
+	err = collection.mongo_collection.FindOne(ctx, filter).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return fmt.Errorf("doc %s not found", id)
@@ -118,8 +121,10 @@ func (collection *DBCollection) DeleteByID(id string) error {
 	if err != nil {
 		return fmt.Errorf("unable to create filter: %v", err)
 	}
+	ctx, cancel := getContext()
+	defer cancel()
 	var doc bson.M
-	err = collection.mongo_collection.FindOneAndDelete(*collection.context, filter).Decode(&doc)
+	err = collection.mongo_collection.FindOneAndDelete(ctx, filter).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return fmt.Errorf("doc %s not found", id)
@@ -132,16 +137,18 @@ func (collection *DBCollection) DeleteByID(id string) error {
 // list all docs' ids
 func (collection *DBCollection) ListDocsIDs() ([]string, error) {
 	var ids []string
-	cursor, err := collection.mongo_collection.Find(*collection.context,
+	ctx, cancel := getContext()
+	defer cancel()
+	cursor, err := collection.mongo_collection.Find(ctx,
 		bson.D{{}},
 		options.Find().SetProjection(bson.D{{"_id", 1}}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to find any docs: %v", err)
 	}
-	defer cursor.Close(*collection.context)
+	defer cursor.Close(ctx)
 
 	// Iterate through the cursor and print the document IDs
-	for cursor.Next(*collection.context) {
+	for cursor.Next(ctx) {
 		var result bson.M
 		if err := cursor.Decode(&result); err != nil {
 			return nil, fmt.Errorf("decoding error: %v", err)
@@ -160,5 +167,7 @@ func (collection *DBCollection) ListDocsIDs() ([]string, error) {
 
 // drop collection
 func (collection *DBCollection) Drop() error {
-	return collection.mongo_collection.Drop(*collection.context)
+	ctx, cancel := getContext()
+	defer cancel()
+	return collection.mongo_collection.Drop(ctx)
 }

@@ -10,33 +10,30 @@ import (
 
 // MongoDB  client type
 type DBClient struct {
-	handle      *mongo.Client      // db handle
-	context     context.Context    // db context
-	cancel      context.CancelFunc // context cancel function
-	db          *mongo.Database    // db handler
-	collections []*DBCollection    // collections
+	handle      *mongo.Client   // db handle
+	db          *mongo.Database // db handler
+	collections []*DBCollection // collections
 }
 
 // DBClient methods
 
 // disconnect from db
 func (client *DBClient) Disconnect() error {
-	return client.handle.Disconnect(client.context)
+	return client.handle.Disconnect(context.Background())
 }
 
 // get db names
 func (client *DBClient) GetDBNames() (dbs []string, err error) {
-	return client.handle.ListDatabaseNames(client.context, bson.D{})
+	ctx, cancel := getContext()
+	defer cancel()
+	return client.handle.ListDatabaseNames(ctx, bson.D{})
 }
 
 // ping
 func (client *DBClient) Ping() error {
-	return client.handle.Ping(client.context, nil)
-}
-
-// cancel context (abandon all work immediately)
-func (client *DBClient) CancelContext() {
-	client.cancel()
+	ctx, cancel := getContext()
+	defer cancel()
+	return client.handle.Ping(ctx, nil)
 }
 
 // select a db, create one if it doesn't exist
@@ -62,7 +59,6 @@ func (client *DBClient) GetCollection(name string) (*DBCollection, error) {
 	}
 	collection := &DBCollection{
 		mongo_collection: client.db.Collection(name),
-		context:          &client.context,
 	}
 	client.collections = append(client.collections, collection)
 	return collection, nil

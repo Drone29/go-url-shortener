@@ -13,7 +13,7 @@ type URLData = url_data.URLData
 func main() {
 
 	fmt.Println("Connecting to db...")
-	client, err := db_handler.Connect("127.0.0.1", 27017)
+	client, err := db_handler.Connect("lcoalhost", 27017)
 	if err != nil {
 		log.Fatalf("Couldn't create DB client: %v", err)
 	}
@@ -31,9 +31,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error adding collection: %v", err)
 	}
-
-	// collection.InsertOne(ud)
-	// collection.FindOne(ud, &ud)
 
 	fmt.Println("Listening on port 8080...")
 

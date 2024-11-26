@@ -29,7 +29,7 @@ func tokenizePath(path string) []string {
 func readBody(r *http.Request) []byte {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Panicf("[ERROR] Error reading body:\n%v", err)
+		panic(fmt.Sprintf("Error reading body:\n%v", err))
 	}
 	defer r.Body.Close()
 	return body
@@ -37,14 +37,6 @@ func readBody(r *http.Request) []byte {
 
 // register new url
 func handlePOST(w http.ResponseWriter, r *http.Request) {
-
-	// handle panic
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("[ERROR] %v", r)
-			http.Error(w, fmt.Sprintf("Internal error:\n%v", r), http.StatusInternalServerError) //500
-		}
-	}()
 
 	switch r.URL.Path {
 	case "/shorten", "/shorten/":
@@ -65,7 +57,6 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[DEBUG] Looking for record in db...")
 		err = db.FindOne(record, &record)
 		if (err != nil) && (err != db_handler.ErrNoDocuments) {
-			log.Printf("[ERROR] Error accessing db:\n%v", err)
 			panic(fmt.Sprintf("Error accessing db:\n%v", err))
 		}
 		// already exists
@@ -84,7 +75,6 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[DEBUG] Inserting record into db...")
 		record.ID, err = db.InsertOne(record)
 		if err != nil {
-			log.Printf("[ERROR] Error accessing db:\n%v", err)
 			panic(fmt.Sprintf("Error inserting into db:\n%v", err))
 		}
 		// return response
@@ -101,24 +91,36 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 
 // obtain registered url
 func handleGET(w http.ResponseWriter, r *http.Request) {
+
 	tokens := tokenizePath(r.URL.Path)
 	switch len(tokens) {
 	case 2:
-		short_url := tokens[1]
-		// TODO: retrieve short url from db
-		// TODO: return 404 if short url not found
+		record := URLData{
+			ShortCode: tokens[1],
+		}
+		// retrieve short url from db
+		log.Printf("[DEBUG] Looking for record in db...")
+		err := db.FindOne(record, &record)
+		if err != nil {
+			if err == db_handler.ErrNoDocuments {
+				log.Printf("[ERROR] No such record %s", record.ShortCode)
+				http.Error(w, fmt.Sprintf("No such record %s", record.ShortCode), http.StatusNotFound)
+				return
+			} else {
+				panic(fmt.Sprintf("Error accessing db:\n%v", err))
+			}
+		}
 		w.WriteHeader(http.StatusOK) //200
-		fmt.Fprintf(w, "Retrieved short url from db %s\n", short_url)
+		fmt.Fprintf(w, "%s", record)
+		log.Printf("[DEBUG] Response %s", record)
 	case 3:
 		if tokens[2] == "stats" {
 			handleStats(tokens[1], w, r) // stats
 		} else {
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(w, "%s not found\n", r.URL.Path)
+			http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound)
 		}
 	default:
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "%s not found\n", r.URL.Path)
+		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound)
 	}
 }
 
@@ -164,6 +166,14 @@ func handleStats(short_url string, w http.ResponseWriter, r *http.Request) {
 
 // handle http requests
 func shorten(w http.ResponseWriter, r *http.Request) {
+	// handle panic
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[ERROR] %v", r)
+			http.Error(w, fmt.Sprintf("Internal error:\n%v", r), http.StatusInternalServerError) //500
+		}
+	}()
+
 	switch r.Method {
 	case "POST":
 		handlePOST(w, r)

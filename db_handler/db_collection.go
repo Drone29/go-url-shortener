@@ -106,9 +106,9 @@ func (collection *DBCollection) FindByID(id string, result any) error {
 	err = collection.mongo_collection.FindOne(ctx, filter).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return fmt.Errorf("doc %s not found", id)
+			return err
 		}
-		return fmt.Errorf("failed to find doc %s: %v", id, err)
+		return err
 	}
 
 	return convertBsonToJson(doc, &result)
@@ -127,9 +127,9 @@ func (collection *DBCollection) DeleteByID(id string) error {
 	err = collection.mongo_collection.FindOneAndDelete(ctx, filter).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return fmt.Errorf("doc %s not found", id)
+			return err
 		}
-		return fmt.Errorf("failed to find doc %s: %v", id, err)
+		return err
 	}
 	return nil
 }

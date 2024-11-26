@@ -71,7 +71,8 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		// already exists
 		if record.ID != "" {
 			log.Printf("[DEBUG] Record already exists")
-			http.Error(w, "URL already exists", http.StatusNotModified) //304
+			w.WriteHeader(http.StatusOK) //200
+			fmt.Fprintf(w, "%s", record)
 			return
 		}
 		// set missing properties

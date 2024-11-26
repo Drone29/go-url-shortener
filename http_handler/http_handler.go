@@ -63,6 +63,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		if record.ID != "" {
 			log.Printf("[DEBUG] Record already exists")
 			w.WriteHeader(http.StatusOK) //200
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			fmt.Fprintf(w, "%s", record)
 			return
 		}
@@ -83,9 +84,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%s", record) // return new record as JSON
 		log.Printf("[DEBUG] Response %s", record)
 	default:
-		w.WriteHeader(http.StatusNotFound)
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		fmt.Fprintf(w, "%s not found\n", r.URL.Path)
+		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
 	}
 }
 
@@ -104,23 +103,24 @@ func handleGET(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if err == db_handler.ErrNoDocuments {
 				log.Printf("[ERROR] No such record %s", record.ShortCode)
-				http.Error(w, fmt.Sprintf("No such record %s", record.ShortCode), http.StatusNotFound)
+				http.Error(w, fmt.Sprintf("No such record %s", record.ShortCode), http.StatusNotFound) //404
 				return
 			} else {
 				panic(fmt.Sprintf("Error accessing db:\n%v", err))
 			}
 		}
 		w.WriteHeader(http.StatusOK) //200
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		fmt.Fprintf(w, "%s", record)
 		log.Printf("[DEBUG] Response %s", record)
 	case 3:
 		if tokens[2] == "stats" {
 			handleStats(tokens[1], w, r) // stats
 		} else {
-			http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
 		}
 	default:
-		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
 	}
 }
 

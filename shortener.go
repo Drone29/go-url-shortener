@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"url-shortener/db_handler"
@@ -13,17 +12,7 @@ type URLData = url_data.URLData
 
 func main() {
 
-	ud := URLData{
-		URL:       "https://12443",
-		ShortCode: "12345",
-	}
-	ud.IncludeAccessCountInJSON(true)
-	var ud_n URLData
-	fmt.Println(ud)
-	json.Unmarshal([]byte(`{"_id":"44","createdAt":"", "updatedAt":""}`), &ud_n)
-
-	fmt.Println(ud_n)
-
+	fmt.Println("Connecting to db...")
 	client, err := db_handler.Connect("localhost", 27017)
 	if err != nil {
 		log.Fatalf("Couldn't create DB client: %v", err)
@@ -46,6 +35,12 @@ func main() {
 	// collection.InsertOne(ud)
 	// collection.FindOne(ud, &ud)
 
+	fmt.Println("Listening on port 8080...")
+
 	http_handler.Start(8080, collection)
+
+	fmt.Println("Stopped listening, disconnecting from db")
+
+	client.Disconnect()
 
 }

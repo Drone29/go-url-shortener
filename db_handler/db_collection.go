@@ -16,6 +16,8 @@ type DBCollection struct {
 	context          *context.Context
 }
 
+var ErrNoDocuments = mongo.ErrNoDocuments
+
 // DBCollection methods
 
 // get collection name
@@ -51,15 +53,12 @@ func (collection *DBCollection) FindOne(filter any, result any) error {
 	var doc bson.M
 	bson_filter, err := bsonFromAny(filter)
 	if err != nil {
-		return fmt.Errorf("error: %v", err)
+		return err
 	}
 
 	err = collection.mongo_collection.FindOne(*collection.context, bson_filter).Decode(&doc)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return fmt.Errorf("no docs found")
-		}
-		return fmt.Errorf("failed to find docs: %v", err)
+		return err
 	}
 
 	return convertBsonToJson(doc, &result)
@@ -77,14 +76,14 @@ func (collection *DBCollection) Find(filter any, result any) error {
 	}
 	cursor, err := collection.mongo_collection.Find(*collection.context, bsonD)
 	if err != nil {
-		return fmt.Errorf("failed to find any docs: %v", err)
+		return err
 	}
 
 	defer cursor.Close(*collection.context)
 
 	// Decode the results into the result slice
 	if err := cursor.All(*collection.context, result); err != nil {
-		return fmt.Errorf("failed to decode documents: %v", err)
+		return err
 	}
 
 	return nil

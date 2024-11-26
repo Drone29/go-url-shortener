@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -28,7 +29,7 @@ func tokenizePath(path string) []string {
 func readBody(r *http.Request) []byte {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading body:\n%v", err))
+		log.Panicf("[ERROR] Error reading body:\n%v", err)
 	}
 	defer r.Body.Close()
 	return body
@@ -40,6 +41,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
+			log.Printf("[ERROR] %v", r)
 			http.Error(w, fmt.Sprintf("Internal error:\n%v", r), http.StatusInternalServerError) //500
 		}
 	}()
@@ -48,22 +50,27 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 	case "/shorten", "/shorten/":
 		// read body
 		body := readBody(r)
-
+		log.Printf("[DEBUG] Request %s", string(body))
 		record := URLData{}
 		// convert body to json
 		err := json.Unmarshal(body, &record)
 		if err != nil {
 			// return http.StatusBadRequest in case of validation errors
-			http.Error(w, "Invalid request", http.StatusBadRequest) //400
+			log.Printf("[ERROR] %v", err)
+			http.Error(w, fmt.Sprintf("Invalid request:\n%v", err), http.StatusBadRequest) //400
 			return
 		}
 		// check if such record already exists
 		// use parsed record as both filter and result
-		if err = db.FindOne(record, &record); err != nil {
+		log.Printf("[DEBUG] Looking for record in db...")
+		err = db.FindOne(record, &record)
+		if (err != nil) && (err != db_handler.ErrNoDocuments) {
+			log.Printf("[ERROR] Error accessing db:\n%v", err)
 			panic(fmt.Sprintf("Error accessing db:\n%v", err))
 		}
 		// already exists
 		if record.ID != "" {
+			log.Printf("[DEBUG] Record already exists")
 			http.Error(w, "URL already exists", http.StatusNotModified) //304
 			return
 		}
@@ -71,15 +78,19 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		record.CreatedAt = time.Now()
 		record.UpdatedAt = record.CreatedAt
 		record.ShortCode = url_generator.GenerateShortURL(shortURLLen)
+		record.AccessCount = 0
 		// store new record in the db
+		log.Printf("[DEBUG] Inserting record into db...")
 		record.ID, err = db.InsertOne(record)
 		if err != nil {
+			log.Printf("[ERROR] Error accessing db:\n%v", err)
 			panic(fmt.Sprintf("Error inserting into db:\n%v", err))
 		}
 		// return response
 		w.WriteHeader(http.StatusCreated) //201
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		fmt.Fprintf(w, "%s", record) // return new record as JSON
+		log.Printf("[DEBUG] Response %s", record)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")

@@ -69,11 +69,11 @@ func (u *URLData) UnmarshalJSON(data []byte) error {
 
 	// parse custom date to time.Time
 	u.CreatedAt, err = time.Parse(time.RFC3339, aux.CreatedAt)
-	if err != nil {
+	if (aux.CreatedAt != "") && (err != nil) {
 		return fmt.Errorf("failed parsing createdAt: %v", err)
 	}
-	u.UpdatedAt, err = time.Parse(time.RFC3339, aux.CreatedAt)
-	if err != nil {
+	u.UpdatedAt, err = time.Parse(time.RFC3339, aux.UpdatedAt)
+	if (aux.UpdatedAt != "") && (err != nil) {
 		return fmt.Errorf("failed parsing updatedAt: %v", err)
 	}
 

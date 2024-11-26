@@ -28,16 +28,7 @@ func convertBsonToJson(bson_doc bson.M, result any) error {
 	return json.Unmarshal(jsonData, &result)
 }
 
-func bsonFromString(filter string) (bson.M, error) {
-	var bson_filter bson.M
-	err := json.Unmarshal([]byte(filter), &bson_filter)
-	if err != nil {
-		return nil, err
-	}
-	return bson_filter, nil
-}
-
-func bsonFromStruct(s any) (bson.M, error) {
+func bsonFromAny(s any) (bson.M, error) {
 	data, err := bson.Marshal(s)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal struct: %v", err)
@@ -50,32 +41,4 @@ func bsonFromStruct(s any) (bson.M, error) {
 	}
 
 	return bsonMap, nil
-}
-
-func bsonFromAny(val any) (bson.M, error) {
-	var bson_filter bson.M
-	switch f := val.(type) {
-	case string:
-		var err error
-		bson_filter, err = bsonFromString(f)
-		if err != nil {
-			return nil, fmt.Errorf("invalid JSON filter: %v", err)
-		}
-		// Handle _id conversion (if it exists in the filter)
-		if id, ok := bson_filter["_id"].(string); ok {
-			// Convert the string _id to ObjectID
-			objectID, err := primitive.ObjectIDFromHex(id)
-			if err != nil {
-				return nil, fmt.Errorf("invalid _id format: %v", err)
-			}
-			bson_filter["_id"] = objectID // Replace string _id with ObjectID
-		}
-	default:
-		var err error
-		bson_filter, err = bsonFromStruct(f)
-		if err != nil {
-			return nil, fmt.Errorf("invalid BSON filter: %v", err)
-		}
-	}
-	return bson_filter, nil
 }

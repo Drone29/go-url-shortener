@@ -6,12 +6,16 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 	"url-shortener/db_handler"
 	"url-shortener/url_data"
+	"url-shortener/url_generator"
 )
 
 type URLData = url_data.URLData
 type DB = db_handler.DBCollection
+
+const shortURLLen int = 6
 
 var db *DB
 
@@ -21,11 +25,10 @@ func tokenizePath(path string) []string {
 	return strings.Split(path, "/")
 }
 
-func readBody(w http.ResponseWriter, r *http.Request) []byte {
+func readBody(r *http.Request) []byte {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Failed reading request body", http.StatusInternalServerError)
-		return []byte{}
+		panic(fmt.Sprintf("Error reading body:\n%v", err))
 	}
 	defer r.Body.Close()
 	return body
@@ -33,41 +36,53 @@ func readBody(w http.ResponseWriter, r *http.Request) []byte {
 
 // register new url
 func handlePOST(w http.ResponseWriter, r *http.Request) {
+
+	// handle panic
+	defer func() {
+		if r := recover(); r != nil {
+			http.Error(w, fmt.Sprintf("Internal error:\n%v", r), http.StatusInternalServerError) //500
+		}
+	}()
+
 	switch r.URL.Path {
 	case "/shorten", "/shorten/":
 		// read body
-		body := readBody(w, r)
-		url_json := struct {
-			URL string `json:"url"`
-		}{}
-		// convert body to json
-		// return http.StatusBadRequest in case of validation errors
-		if err := json.Unmarshal(body, &url_json); err != nil {
-			http.Error(w, "Invalid request", http.StatusBadRequest)
-		}
+		body := readBody(r)
 
-		record := URLData{
-			URL: url_json.URL,
+		record := URLData{}
+		// convert body to json
+		err := json.Unmarshal(body, &record)
+		if err != nil {
+			// return http.StatusBadRequest in case of validation errors
+			http.Error(w, "Invalid request", http.StatusBadRequest) //400
+			return
 		}
 		// check if such record already exists
-		if err := db.FindOne(record, &record); err != nil {
-			http.Error(w, "Error accessing db", http.StatusInternalServerError)
+		// use parsed record as both filter and result
+		if err = db.FindOne(record, &record); err != nil {
+			panic(fmt.Sprintf("Error accessing db:\n%v", err))
 		}
-
+		// already exists
 		if record.ID != "" {
-			// already exists
-			http.Error(w, "URL already exists", http.StatusNotModified)
+			http.Error(w, "URL already exists", http.StatusNotModified) //304
+			return
 		}
+		// set missing properties
+		record.CreatedAt = time.Now()
+		record.UpdatedAt = record.CreatedAt
+		record.ShortCode = url_generator.GenerateShortURL(shortURLLen)
 		// store new record in the db
-		id, err := db.InsertOne(record)
+		record.ID, err = db.InsertOne(record)
 		if err != nil {
-			http.Error(w, "Error accessing db", http.StatusInternalServerError)
+			panic(fmt.Sprintf("Error inserting into db:\n%v", err))
 		}
-
+		// return response
 		w.WriteHeader(http.StatusCreated) //201
-		fmt.Fprintf(w, "%s", id)
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		fmt.Fprintf(w, "%s", record) // return new record as JSON
 	default:
 		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		fmt.Fprintf(w, "%s not found\n", r.URL.Path)
 	}
 }

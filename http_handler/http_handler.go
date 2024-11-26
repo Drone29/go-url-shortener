@@ -35,6 +35,13 @@ func readBody(r *http.Request) []byte {
 	return body
 }
 
+func sendJsonResponse(w http.ResponseWriter, status int, record URLData) {
+	w.WriteHeader(status)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	fmt.Fprintf(w, "%s", record)
+	log.Printf("[DEBUG] Response %s", record)
+}
+
 // register new url
 func handlePOST(w http.ResponseWriter, r *http.Request) {
 
@@ -62,9 +69,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		// already exists
 		if record.ID != "" {
 			log.Printf("[DEBUG] Record already exists")
-			w.WriteHeader(http.StatusOK) //200
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			fmt.Fprintf(w, "%s", record)
+			sendJsonResponse(w, http.StatusOK, record) //200
 			return
 		}
 		// set missing properties
@@ -79,10 +84,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 			panic(fmt.Sprintf("Error inserting into db:\n%v", err))
 		}
 		// return response
-		w.WriteHeader(http.StatusCreated) //201
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		fmt.Fprintf(w, "%s", record) // return new record as JSON
-		log.Printf("[DEBUG] Response %s", record)
+		sendJsonResponse(w, http.StatusCreated, record) //201
 	default:
 		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
 	}
@@ -109,10 +111,7 @@ func handleGET(w http.ResponseWriter, r *http.Request) {
 				panic(fmt.Sprintf("Error accessing db:\n%v", err))
 			}
 		}
-		w.WriteHeader(http.StatusOK) //200
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		fmt.Fprintf(w, "%s", record)
-		log.Printf("[DEBUG] Response %s", record)
+		sendJsonResponse(w, http.StatusOK, record) // 200
 	case 3:
 		if tokens[2] == "stats" {
 			handleStats(tokens[1], w, r) // stats

@@ -2,6 +2,7 @@ package db_handler
 
 import (
 	"fmt"
+	"url-shortener/db_interface"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -9,12 +10,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// MongoDB collection handler type
+// MongoDB collection handler type (implements IDBCollection)
 type DBCollection struct {
 	mongo_collection *mongo.Collection
 }
-
-var ErrNoDocuments = mongo.ErrNoDocuments
 
 // DBCollection methods
 
@@ -58,6 +57,9 @@ func (collection *DBCollection) FindOne(filter any, result any) error {
 	defer cancel()
 	err = collection.mongo_collection.FindOne(ctx, bson_filter).Decode(&doc)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return db_interface.ErrNoDocuments
+		}
 		return err
 	}
 
@@ -78,6 +80,9 @@ func (collection *DBCollection) Find(filter any, result any) error {
 	defer cancel()
 	cursor, err := collection.mongo_collection.Find(ctx, bsonD)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return db_interface.ErrNoDocuments
+		}
 		return err
 	}
 
@@ -106,7 +111,7 @@ func (collection *DBCollection) FindByID(id string, result any) error {
 	err = collection.mongo_collection.FindOne(ctx, filter).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return err
+			return db_interface.ErrNoDocuments
 		}
 		return err
 	}
@@ -127,7 +132,7 @@ func (collection *DBCollection) DeleteByID(id string) error {
 	err = collection.mongo_collection.FindOneAndDelete(ctx, filter).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return err
+			return db_interface.ErrNoDocuments
 		}
 		return err
 	}

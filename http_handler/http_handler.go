@@ -8,17 +8,17 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"url-shortener/db_handler"
+	"url-shortener/db_interface"
 	"url-shortener/url_data"
 	"url-shortener/url_generator"
 )
 
 type URLData = url_data.URLData
-type DB = db_handler.DBCollection
+type DB = db_interface.IDBCollection
 
 const shortURLLen int = 6
 
-var db *DB
+var db DB
 
 // helpers
 func tokenizePath(path string) []string {
@@ -63,7 +63,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		// use parsed record as both filter and result
 		log.Printf("[DEBUG] Looking for record in db...")
 		err = db.FindOne(record, &record)
-		if (err != nil) && (err != db_handler.ErrNoDocuments) {
+		if (err != nil) && (err != db_interface.ErrNoDocuments) {
 			panic(fmt.Sprintf("Error accessing db:\n%v", err))
 		}
 		// already exists
@@ -103,7 +103,7 @@ func handleGET(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[DEBUG] Looking for record in db...")
 		err := db.FindOne(record, &record)
 		if err != nil {
-			if err == db_handler.ErrNoDocuments {
+			if err == db_interface.ErrNoDocuments {
 				log.Printf("[ERROR] No such record %s", record.ShortCode)
 				http.Error(w, fmt.Sprintf("No such record %s", record.ShortCode), http.StatusNotFound) //404
 				return
@@ -188,7 +188,7 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 // start server
-func Start(port int, collection *DB) error {
+func Start(port int, collection DB) error {
 	if collection == nil {
 		return fmt.Errorf("db collection is nil")
 	}

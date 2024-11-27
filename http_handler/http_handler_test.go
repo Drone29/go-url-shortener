@@ -225,3 +225,32 @@ func TestGETStats(t *testing.T) {
 		t.Errorf("invalid response: %v", url_data)
 	}
 }
+
+// PUT
+func TestPUTInvalidURL(t *testing.T) {
+	if w := testHTTP("PUT", "/shorten/", ""); w.Code != http.StatusNotFound {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+}
+
+func TestPUTInvalidBody(t *testing.T) {
+	//invalid url type
+	if w := testHTTP("PUT", "/shorten/abc123", `{"url": 123}`); w.Code != http.StatusBadRequest {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+	// incomplete json
+	if w := testHTTP("PUT", "/shorten/abc123", `{"url": "http://someurl"`); w.Code != http.StatusBadRequest {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+	//absent url
+	if w := testHTTP("PUT", "/shorten/abc123", `{"notaurl": "http://someurl"}`); w.Code != http.StatusBadRequest {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+}
+
+func TestPUTNoData(t *testing.T) {
+	mock_db.data = mock_db.data[:0] //clear data
+	if w := testHTTP("PUT", "/shorten/abc123", ""); w.Code != http.StatusBadRequest {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+}

@@ -35,6 +35,19 @@ func readBody(r *http.Request) []byte {
 	return body
 }
 
+func recordFromBody(r *http.Request) (URLData, error) {
+	// read body
+	body := readBody(r)
+	log.Printf("[DEBUG] Request %s", string(body))
+	record := URLData{}
+	// convert body to json
+	err := json.Unmarshal(body, &record)
+	if err != nil {
+		return URLData{}, err
+	}
+	return record, nil
+}
+
 func sendJsonResponse(w http.ResponseWriter, status int, record URLData) {
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -47,14 +60,8 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 
 	switch r.URL.Path {
 	case "/shorten", "/shorten/":
-		// read body
-		body := readBody(r)
-		log.Printf("[DEBUG] Request %s", string(body))
-		record := URLData{}
-		// convert body to json
-		err := json.Unmarshal(body, &record)
+		record, err := recordFromBody(r)
 		if err != nil {
-			// return http.StatusBadRequest in case of validation errors
 			log.Printf("[ERROR] %v", err)
 			http.Error(w, fmt.Sprintf("Invalid request:\n%v", err), http.StatusBadRequest) //400
 			return
@@ -67,7 +74,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 			panic(fmt.Sprintf("Error accessing db:\n%v", err))
 		}
 		// already exists
-		if record.ID != "" {
+		if err == nil {
 			log.Printf("[DEBUG] Record already exists")
 			sendJsonResponse(w, http.StatusOK, record) //200
 			return
@@ -108,6 +115,15 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 			panic(fmt.Sprintf("Error accessing db:\n%v", err))
 		}
 	}
+	// if not stats request, update count
+	if !include_ac {
+		new_rec := record
+		new_rec.AccessCount++
+		err = db.UpdateOne(record, new_rec)
+		if err != nil {
+			panic(fmt.Sprintf("Error accessing db:\n%v", err))
+		}
+	}
 	sendJsonResponse(w, http.StatusOK, record) // 200
 }
 
@@ -134,15 +150,40 @@ func handlePUT(w http.ResponseWriter, r *http.Request) {
 	tokens := tokenizePath(r.URL.Path)
 	switch len(tokens) {
 	case 2:
-		short_url := tokens[1]
-		// TODO: update short url in db
-		// TODO: return 404 if short url not found
-		// TODO: return 400 bad request in case of validation errors
-		w.WriteHeader(http.StatusOK) //200
-		fmt.Fprintf(w, "Updated short url %s\n", short_url)
+		replaceWhat := URLData{
+			ShortCode: tokens[1],
+		}
+		replaceWith, err := recordFromBody(r)
+		if err != nil {
+			log.Printf("[ERROR] %v", err)
+			http.Error(w, fmt.Sprintf("Invalid request:\n%v", err), http.StatusBadRequest) //400
+			return
+		}
+
+		// retrieve short url from db
+		log.Printf("[DEBUG] Updating record in db...")
+		err = db.FindOne(replaceWhat, &replaceWhat)
+		if err != nil {
+			if err == db_interface.ErrNoDocuments {
+				log.Printf("[ERROR] No such record %s", replaceWith.ShortCode)
+				http.Error(w, fmt.Sprintf("No such record %s", replaceWith.ShortCode), http.StatusNotFound) //404
+				return
+			} else {
+				panic(fmt.Sprintf("Error accessing db:\n%v", err))
+			}
+		}
+		replaceWith.ID = replaceWhat.ID
+		replaceWith.ShortCode = replaceWhat.ShortCode
+		replaceWith.CreatedAt = replaceWhat.CreatedAt
+		replaceWith.UpdatedAt = time.Now()
+		replaceWith.AccessCount = replaceWhat.AccessCount + 1
+		err = db.UpdateOne(replaceWhat, replaceWith)
+		if err != nil {
+			panic(fmt.Sprintf("Error accessing db:\n%v", err))
+		}
+		sendJsonResponse(w, http.StatusOK, replaceWith) // 200
 	default:
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "%s not found\n", r.URL.Path)
+		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
 	}
 }
 

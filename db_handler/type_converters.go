@@ -40,5 +40,13 @@ func bsonFromAny(s any) (bson.M, error) {
 		return nil, fmt.Errorf("failed to unmarshal into bson.M: %v", err)
 	}
 
+	if s, ok := bsonMap["_id"].(string); ok {
+		objID, err := primitive.ObjectIDFromHex(s)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ID format: %v", err)
+		}
+		bsonMap["_id"] = objID
+	}
+
 	return bsonMap, nil
 }

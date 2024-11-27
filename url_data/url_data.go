@@ -18,7 +18,7 @@ type URLData struct {
 	// custom-marshaled propeties
 	CreatedAt   time.Time `json:"-" bson:"createdAt,omitempty"`
 	UpdatedAt   time.Time `json:"-" bson:"updatedAt,omitempty"`
-	AccessCount int       `json:"-" bson:"accessCount"` // bson.url cannot be empty
+	AccessCount int       `json:"-" bson:"accessCount,omitempty"`
 	// control properties
 	include_access_count_in_json bool `json:"-" bson:"-"`
 }

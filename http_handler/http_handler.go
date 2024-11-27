@@ -90,31 +90,37 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// get statistics
+func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
+	record := URLData{
+		ShortCode: short_url,
+	}
+	// retrieve short url from db
+	log.Printf("[DEBUG] Looking for record in db...")
+	record.IncludeAccessCountInJSON(include_ac)
+	err := db.FindOne(record, &record)
+	if err != nil {
+		if err == db_interface.ErrNoDocuments {
+			log.Printf("[ERROR] No such record %s", record.ShortCode)
+			http.Error(w, fmt.Sprintf("No such record %s", record.ShortCode), http.StatusNotFound) //404
+			return
+		} else {
+			panic(fmt.Sprintf("Error accessing db:\n%v", err))
+		}
+	}
+	sendJsonResponse(w, http.StatusOK, record) // 200
+}
+
 // obtain registered url
 func handleGET(w http.ResponseWriter, r *http.Request) {
 
 	tokens := tokenizePath(r.URL.Path)
 	switch len(tokens) {
 	case 2:
-		record := URLData{
-			ShortCode: tokens[1],
-		}
-		// retrieve short url from db
-		log.Printf("[DEBUG] Looking for record in db...")
-		err := db.FindOne(record, &record)
-		if err != nil {
-			if err == db_interface.ErrNoDocuments {
-				log.Printf("[ERROR] No such record %s", record.ShortCode)
-				http.Error(w, fmt.Sprintf("No such record %s", record.ShortCode), http.StatusNotFound) //404
-				return
-			} else {
-				panic(fmt.Sprintf("Error accessing db:\n%v", err))
-			}
-		}
-		sendJsonResponse(w, http.StatusOK, record) // 200
+		retrieveRecord(tokens[1], w, false)
 	case 3:
 		if tokens[2] == "stats" {
-			handleStats(tokens[1], w, r) // stats
+			retrieveRecord(tokens[1], w, true) // stats
 		} else {
 			http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
 		}
@@ -154,13 +160,6 @@ func handleDELETE(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%s not found\n", r.URL.Path)
 	}
-}
-
-// get statistics
-func handleStats(short_url string, w http.ResponseWriter, r *http.Request) {
-	//TODO: retrieve url from db and return its info
-	w.WriteHeader(http.StatusOK) //200
-	fmt.Fprintf(w, "Stats for url %s\n", short_url)
 }
 
 // handle http requests

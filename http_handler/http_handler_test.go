@@ -18,6 +18,8 @@ type dbCollectionMock struct {
 	id_cnt int
 }
 
+var mock_db = dbCollectionMock{}
+
 func (collection *dbCollectionMock) InsertOne(doc any) (id string, err error) {
 	t, ok := doc.(URLData)
 	if ok {
@@ -50,6 +52,8 @@ func (collection *dbCollectionMock) FindOne(filter any, result any) error {
 // helpers
 
 func testHTTP(method, url, body string) *httptest.ResponseRecorder {
+	db = &mock_db
+
 	w := httptest.NewRecorder()
 	// mock request
 	req := httptest.NewRequest(method, url, strings.NewReader(body))
@@ -57,6 +61,21 @@ func testHTTP(method, url, body string) *httptest.ResponseRecorder {
 	shorten(w, req)
 
 	return w
+}
+
+func testResult(w *httptest.ResponseRecorder, ref URLData) error {
+	body, err := io.ReadAll(w.Body)
+	if err != nil {
+		return fmt.Errorf("io error %v", err)
+	}
+	url_data := URLData{}
+	if err := json.Unmarshal(body, &url_data); err != nil {
+		return fmt.Errorf("json error %v", err)
+	}
+	if url_data.String() != ref.String() {
+		return fmt.Errorf("invalid response: %v", url_data)
+	}
+	return nil
 }
 
 // tests
@@ -91,8 +110,6 @@ func TestPOSTInvalidBody(t *testing.T) {
 }
 
 func TestPOSTInsertion(t *testing.T) {
-	mock_db := dbCollectionMock{}
-	db = &mock_db
 
 	w := testHTTP("POST", "/shorten", `{"url": "http://someurl"}`)
 	if w.Code != http.StatusCreated {
@@ -101,16 +118,8 @@ func TestPOSTInsertion(t *testing.T) {
 	if len(mock_db.data) != 1 {
 		t.Errorf("nothing was inserted into db")
 	}
-	body, err := io.ReadAll(w.Body)
-	if err != nil {
-		t.Errorf("io error %v", err)
-	}
-	url_data := URLData{}
-	if err := json.Unmarshal(body, &url_data); err != nil {
-		t.Errorf("json error %v", err)
-	}
-	if url_data.String() != mock_db.data[0].String() {
-		t.Errorf("invalid response: %v", url_data)
+	if err := testResult(w, mock_db.data[0]); err != nil {
+		t.Errorf("%v", err)
 	}
 
 	// check if requested again
@@ -121,14 +130,59 @@ func TestPOSTInsertion(t *testing.T) {
 	if len(mock_db.data) != 1 {
 		t.Errorf("shouldn't have inserted into db")
 	}
-	body, err = io.ReadAll(w.Body)
-	if err != nil {
-		t.Errorf("io error %v", err)
+	if err := testResult(w, mock_db.data[0]); err != nil {
+		t.Errorf("%v", err)
 	}
-	if err := json.Unmarshal(body, &url_data); err != nil {
-		t.Errorf("json error %v", err)
+
+}
+
+// GET
+func TestGETInvalidURL(t *testing.T) {
+	if w := testHTTP("GET", "/shorten/", ""); w.Code != http.StatusNotFound {
+		t.Errorf("invalid response code %v", w.Code)
 	}
-	if url_data.String() != mock_db.data[0].String() {
-		t.Errorf("invalid response: %v", url_data)
+}
+
+func TestGETNoData(t *testing.T) {
+	mock_db.data = mock_db.data[:0] //clear data
+	if w := testHTTP("GET", "/shorten/abc123", ""); w.Code != http.StatusNotFound {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+}
+
+func TestGETRetrieve(t *testing.T) {
+	mock_db.data = mock_db.data[:0] //clear data
+	// add record to db
+	mock_db.data = append(mock_db.data, URLData{
+		ID:        "1",
+		URL:       "http://someurl.com",
+		ShortCode: "abc123",
+	})
+
+	w := testHTTP("GET", "/shorten/abc123", "")
+	if w.Code != http.StatusOK {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+	if err := testResult(w, mock_db.data[0]); err != nil {
+		t.Errorf("%v", err)
+	}
+}
+
+func TestGETStats(t *testing.T) {
+	mock_db.data = mock_db.data[:0] //clear data
+	// add record to db
+	mock_db.data = append(mock_db.data, URLData{
+		ID:          "1",
+		URL:         "http://someurl.com",
+		ShortCode:   "abc123",
+		AccessCount: 3,
+	})
+
+	w := testHTTP("GET", "/shorten/abc123/stats", "")
+	if w.Code != http.StatusOK {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+	if err := testResult(w, mock_db.data[0]); err != nil {
+		t.Errorf("%v", err)
 	}
 }

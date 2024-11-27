@@ -66,6 +66,48 @@ func (collection *DBCollection) FindOne(filter any, result any) error {
 	return convertBsonToJson(doc, &result)
 }
 
+// update doc
+func (collection *DBCollection) UpdateOne(filter any, update_with any) error {
+	bson_filter, err := bsonFromAny(filter)
+	if err != nil {
+		return err
+	}
+	doc, err := bsonFromAny(update_with)
+	if err != nil {
+		return err
+	}
+	var res bson.M
+	ctx, cancel := getContext()
+	defer cancel()
+	err = collection.mongo_collection.FindOneAndUpdate(ctx, bson_filter, doc).Decode(&res)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return db_interface.ErrNoDocuments
+		}
+		return err
+	}
+	return nil
+}
+
+// delete doc
+func (collection *DBCollection) DeleteOne(filter any) error {
+	bson_filter, err := bsonFromAny(filter)
+	if err != nil {
+		return err
+	}
+	var res bson.M
+	ctx, cancel := getContext()
+	defer cancel()
+	err = collection.mongo_collection.FindOneAndDelete(ctx, bson_filter).Decode(&res)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return db_interface.ErrNoDocuments
+		}
+		return err
+	}
+	return nil
+}
+
 // find all with filter
 func (collection *DBCollection) Find(filter any, result any) error {
 	bson_filter, err := bsonFromAny(filter)

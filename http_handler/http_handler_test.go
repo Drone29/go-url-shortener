@@ -49,6 +49,42 @@ func (collection *dbCollectionMock) FindOne(filter any, result any) error {
 	return db_interface.ErrNoDocuments
 }
 
+// update doc
+func (collection *dbCollectionMock) UpdateOne(filter any, update_with any) error {
+	f, ok := filter.(URLData)
+	if !ok {
+		return fmt.Errorf("invalid filter type %T", f)
+	}
+	r, ok := update_with.(URLData)
+	if !ok {
+		return fmt.Errorf("invalid result type %T", r)
+	}
+	for i, data := range collection.data {
+		if f.URL == data.URL || f.ShortCode == data.ShortCode {
+			collection.data[i] = r
+			return nil
+		}
+	}
+	return db_interface.ErrNoDocuments
+}
+
+// delete doc
+func (collection *dbCollectionMock) DeleteOne(filter any) error {
+	f, ok := filter.(URLData)
+	if !ok {
+		return fmt.Errorf("invalid filter type %T", f)
+	}
+	for i, data := range collection.data {
+		if f.URL == data.URL || f.ShortCode == data.ShortCode {
+			temp := collection.data[i+1:]                      // save everything after i
+			collection.data = collection.data[:i]              // truncate until i
+			collection.data = append(collection.data, temp...) // concatenate
+			return nil
+		}
+	}
+	return db_interface.ErrNoDocuments
+}
+
 // helpers
 
 func testHTTP(method, url, body string) *httptest.ResponseRecorder {

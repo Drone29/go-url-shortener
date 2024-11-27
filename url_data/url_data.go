@@ -66,12 +66,14 @@ func (u *URLData) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-
+	// set accesscount from ptr
+	if aux.AccessCount != nil {
+		u.AccessCount = *aux.AccessCount
+	}
 	// check if url is empty
 	if u.URL == "" {
 		return fmt.Errorf("missing required field url")
 	}
-
 	// parse custom date to time.Time
 	u.CreatedAt, err = time.Parse(time.RFC3339, aux.CreatedAt)
 	if (aux.CreatedAt != "") && (err != nil) {

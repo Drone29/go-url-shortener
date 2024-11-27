@@ -97,8 +97,8 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 	}
 	// retrieve short url from db
 	log.Printf("[DEBUG] Looking for record in db...")
-	record.IncludeAccessCountInJSON(include_ac)
 	err := db.FindOne(record, &record)
+	record.IncludeAccessCountInJSON(include_ac)
 	if err != nil {
 		if err == db_interface.ErrNoDocuments {
 			log.Printf("[ERROR] No such record %s", record.ShortCode)

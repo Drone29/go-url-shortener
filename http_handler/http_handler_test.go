@@ -63,19 +63,19 @@ func testHTTP(method, url, body string) *httptest.ResponseRecorder {
 	return w
 }
 
-func testResult(w *httptest.ResponseRecorder, ref URLData) error {
+func testResult(w *httptest.ResponseRecorder, ref URLData) (*URLData, error) {
 	body, err := io.ReadAll(w.Body)
 	if err != nil {
-		return fmt.Errorf("io error %v", err)
+		return nil, fmt.Errorf("io error %v", err)
 	}
 	url_data := URLData{}
 	if err := json.Unmarshal(body, &url_data); err != nil {
-		return fmt.Errorf("json error %v", err)
+		return nil, fmt.Errorf("json error %v", err)
 	}
 	if url_data.String() != ref.String() {
-		return fmt.Errorf("invalid response: %v", url_data)
+		return nil, fmt.Errorf("invalid response: %v", url_data)
 	}
-	return nil
+	return &url_data, nil
 }
 
 // tests
@@ -118,7 +118,7 @@ func TestPOSTInsertion(t *testing.T) {
 	if len(mock_db.data) != 1 {
 		t.Errorf("nothing was inserted into db")
 	}
-	if err := testResult(w, mock_db.data[0]); err != nil {
+	if _, err := testResult(w, mock_db.data[0]); err != nil {
 		t.Errorf("%v", err)
 	}
 
@@ -130,10 +130,9 @@ func TestPOSTInsertion(t *testing.T) {
 	if len(mock_db.data) != 1 {
 		t.Errorf("shouldn't have inserted into db")
 	}
-	if err := testResult(w, mock_db.data[0]); err != nil {
+	if _, err := testResult(w, mock_db.data[0]); err != nil {
 		t.Errorf("%v", err)
 	}
-
 }
 
 // GET
@@ -163,7 +162,7 @@ func TestGETRetrieve(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("invalid response code %v", w.Code)
 	}
-	if err := testResult(w, mock_db.data[0]); err != nil {
+	if _, err := testResult(w, mock_db.data[0]); err != nil {
 		t.Errorf("%v", err)
 	}
 }
@@ -182,7 +181,11 @@ func TestGETStats(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("invalid response code %v", w.Code)
 	}
-	if err := testResult(w, mock_db.data[0]); err != nil {
+	url_data, err := testResult(w, mock_db.data[0])
+	if err != nil {
 		t.Errorf("%v", err)
+	}
+	if url_data.AccessCount != 3 {
+		t.Errorf("invalid response: %v", url_data)
 	}
 }

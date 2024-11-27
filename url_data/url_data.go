@@ -67,6 +67,11 @@ func (u *URLData) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	// check if url is empty
+	if u.URL == "" {
+		return fmt.Errorf("missing required field url")
+	}
+
 	// parse custom date to time.Time
 	u.CreatedAt, err = time.Parse(time.RFC3339, aux.CreatedAt)
 	if (aux.CreatedAt != "") && (err != nil) {

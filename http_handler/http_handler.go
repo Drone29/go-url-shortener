@@ -100,7 +100,6 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		record.CreatedAt = time.Now()
 		record.UpdatedAt = record.CreatedAt
 		record.ShortCode = url_generator.GenerateShortURL(shortURLLen)
-		record.AccessCount = 0 // TODO: AccessCount is not updated in DB
 		// store new record in the db
 		log.Printf("[DEBUG] Inserting record into db...")
 		record.ID, err = db.InsertOne(record)

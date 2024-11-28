@@ -248,10 +248,39 @@ func TestPUTInvalidBody(t *testing.T) {
 	}
 }
 
-func TestPUTNoData(t *testing.T) {
+func TestPUTEmptyBody(t *testing.T) {
 	mock_db.data = mock_db.data[:0] //clear data
 	if w := testHTTP("PUT", "/shorten/abc123", ""); w.Code != http.StatusBadRequest {
 		t.Errorf("invalid response code %v", w.Code)
+	}
+}
+
+func TestPUTNoData(t *testing.T) {
+	mock_db.data = mock_db.data[:0] //clear data
+	if w := testHTTP("PUT", "/shorten/abc123", `{"url": "http://somenewurl"}`); w.Code != http.StatusNotFound {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+}
+
+func TestPUTChangeData(t *testing.T) {
+	mock_db.data = mock_db.data[:0] //clear data
+	// add record to db
+	mock_db.data = append(mock_db.data, URLData{
+		ID:          "1",
+		URL:         "http://someurl.com",
+		ShortCode:   "abc123",
+		AccessCount: 3,
+	})
+
+	w := testHTTP("PUT", "/shorten/abc123", `{"url": "http://somenewurl"}`)
+	if w.Code != http.StatusOK {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+	if _, err := testResult(w, mock_db.data[0]); err != nil {
+		t.Errorf("%v", err)
+	}
+	if mock_db.data[0].URL != "http://somenewurl" {
+		t.Errorf("data didn't change")
 	}
 }
 
@@ -259,5 +288,31 @@ func TestPUTNoData(t *testing.T) {
 func TestDELETEInvalidURL(t *testing.T) {
 	if w := testHTTP("DELETE", "/shorten/", ""); w.Code != http.StatusNotFound {
 		t.Errorf("invalid response code %v", w.Code)
+	}
+}
+
+func TestDELETENoData(t *testing.T) {
+	mock_db.data = mock_db.data[:0] //clear data
+	if w := testHTTP("DELETE", "/shorten/abc123", ""); w.Code != http.StatusNotFound {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+}
+
+func TestDELETERemoveRecord(t *testing.T) {
+	mock_db.data = mock_db.data[:0] //clear data
+	// add record to db
+	mock_db.data = append(mock_db.data, URLData{
+		ID:          "1",
+		URL:         "http://someurl.com",
+		ShortCode:   "abc123",
+		AccessCount: 3,
+	})
+
+	w := testHTTP("DELETE", "/shorten/abc123", "")
+	if w.Code != http.StatusNoContent {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+	if len(mock_db.data) > 0 {
+		t.Errorf("no records were deleted")
 	}
 }

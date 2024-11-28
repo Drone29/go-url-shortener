@@ -254,3 +254,10 @@ func TestPUTNoData(t *testing.T) {
 		t.Errorf("invalid response code %v", w.Code)
 	}
 }
+
+// DELETE
+func TestDELETEInvalidURL(t *testing.T) {
+	if w := testHTTP("DELETE", "/shorten/", ""); w.Code != http.StatusNotFound {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+}

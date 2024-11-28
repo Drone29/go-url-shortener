@@ -35,7 +35,7 @@ func readBody(r *http.Request) []byte {
 	return body
 }
 
-func recordFromBody(r *http.Request) (URLData, error) {
+func recordFromBody(r *http.Request) URLData {
 	// read body
 	body := readBody(r)
 	log.Printf("[DEBUG] Request %s", string(body))
@@ -43,9 +43,9 @@ func recordFromBody(r *http.Request) (URLData, error) {
 	// convert body to json
 	err := json.Unmarshal(body, &record)
 	if err != nil {
-		return URLData{}, err
+		panic(httpErr{code: http.StatusBadRequest, descr: fmt.Sprintf("Error processing request: %v", err)}) //400
 	}
-	return record, nil
+	return record
 }
 
 func sendJsonResponse(w http.ResponseWriter, status int, record URLData) {
@@ -55,30 +55,38 @@ func sendJsonResponse(w http.ResponseWriter, status int, record URLData) {
 	log.Printf("[DEBUG] Response %s", record)
 }
 
+func handleDBErrors(err error) {
+	if err != nil {
+		if err == db_interface.ErrNoDocuments {
+			panic(httpErr{code: http.StatusNotFound, descr: "No records found"})
+		} else {
+			panic(httpErr{code: http.StatusInternalServerError, descr: fmt.Sprintf("DB error: %v", err)})
+		}
+	}
+}
+
 // register new url
 func handlePOST(w http.ResponseWriter, r *http.Request) {
 
 	switch r.URL.Path {
 	case "/shorten", "/shorten/":
-		record, err := recordFromBody(r)
-		if err != nil {
-			log.Printf("[ERROR] %v", err)
-			http.Error(w, fmt.Sprintf("Invalid request:\n%v", err), http.StatusBadRequest) //400
-			return
-		}
+		record := recordFromBody(r)
 		// check if such record already exists
 		// use parsed record as both filter and result
 		log.Printf("[DEBUG] Looking for record in db...")
-		err = db.FindOne(record, &record)
-		if (err != nil) && (err != db_interface.ErrNoDocuments) {
-			panic(fmt.Sprintf("Error accessing db:\n%v", err))
-		}
-		// already exists
-		if err == nil {
+		err := db.FindOne(record, &record)
+
+		switch err {
+		case nil:
 			log.Printf("[DEBUG] Record already exists")
 			sendJsonResponse(w, http.StatusOK, record) //200
 			return
+		case db_interface.ErrNoDocuments:
+			log.Printf("[DEBUG] Record doesn't exists, proceeding")
+		default:
+			panic(httpErr{code: http.StatusInternalServerError, descr: fmt.Sprintf("DB error: %v", err)}) // 500
 		}
+
 		// set missing properties
 		record.CreatedAt = time.Now()
 		record.UpdatedAt = record.CreatedAt
@@ -87,9 +95,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		// store new record in the db
 		log.Printf("[DEBUG] Inserting record into db...")
 		record.ID, err = db.InsertOne(record)
-		if err != nil {
-			panic(fmt.Sprintf("Error inserting into db:\n%v", err))
-		}
+		handleDBErrors(err)
 		// return response
 		sendJsonResponse(w, http.StatusCreated, record) //201
 	default:
@@ -106,23 +112,13 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 	log.Printf("[DEBUG] Looking for record in db...")
 	err := db.FindOne(record, &record)
 	record.IncludeAccessCountInJSON(include_ac)
-	if err != nil {
-		if err == db_interface.ErrNoDocuments {
-			log.Printf("[ERROR] No such record %s", record.ShortCode)
-			http.Error(w, fmt.Sprintf("No such record %s", record.ShortCode), http.StatusNotFound) //404
-			return
-		} else {
-			panic(fmt.Sprintf("Error accessing db:\n%v", err))
-		}
-	}
+	handleDBErrors(err)
 	// if not stats request, update count
 	if !include_ac {
 		new_rec := record
 		new_rec.AccessCount++
 		err = db.UpdateOne(record, new_rec)
-		if err != nil {
-			panic(fmt.Sprintf("Error accessing db:\n%v", err))
-		}
+		handleDBErrors(err)
 	}
 	sendJsonResponse(w, http.StatusOK, record) // 200
 }
@@ -153,34 +149,12 @@ func handlePUT(w http.ResponseWriter, r *http.Request) {
 		replaceWhat := URLData{
 			ShortCode: tokens[1],
 		}
-		replaceWith, err := recordFromBody(r)
-		if err != nil {
-			log.Printf("[ERROR] %v", err)
-			http.Error(w, fmt.Sprintf("Invalid request:\n%v", err), http.StatusBadRequest) //400
-			return
-		}
-
-		// retrieve short url from db
-		log.Printf("[DEBUG] Updating record in db...")
-		err = db.FindOne(replaceWhat, &replaceWhat)
-		if err != nil {
-			if err == db_interface.ErrNoDocuments {
-				log.Printf("[ERROR] No such record %s", replaceWith.ShortCode)
-				http.Error(w, fmt.Sprintf("No such record %s", replaceWith.ShortCode), http.StatusNotFound) //404
-				return
-			} else {
-				panic(fmt.Sprintf("Error accessing db:\n%v", err))
-			}
-		}
-		replaceWith.ID = replaceWhat.ID
+		replaceWith := recordFromBody(r)
 		replaceWith.ShortCode = replaceWhat.ShortCode
-		replaceWith.CreatedAt = replaceWhat.CreatedAt
 		replaceWith.UpdatedAt = time.Now()
 		replaceWith.AccessCount = replaceWhat.AccessCount + 1
-		err = db.UpdateOne(replaceWhat, replaceWith)
-		if err != nil {
-			panic(fmt.Sprintf("Error accessing db:\n%v", err))
-		}
+		err := db.UpdateOne(replaceWhat, replaceWith)
+		handleDBErrors(err)
 		sendJsonResponse(w, http.StatusOK, replaceWith) // 200
 	default:
 		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
@@ -193,25 +167,35 @@ func handleDELETE(w http.ResponseWriter, r *http.Request) {
 	switch len(tokens) {
 	case 2:
 		short_url := tokens[1]
-		// TODO: delete short url from db
-		// TODO: return 404 if short url not found
+		record := URLData{
+			ShortCode: short_url,
+		}
+		err := db.DeleteOne(record)
+		handleDBErrors(err)
 		w.WriteHeader(http.StatusNoContent) //204
-		fmt.Fprintf(w, "Deleted short url %s\n", short_url)
+		fmt.Fprintf(w, "Deleted %s\n", short_url)
 	default:
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "%s not found\n", r.URL.Path)
+		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
+	}
+}
+
+// recover function
+func recover_hdl(w http.ResponseWriter) {
+	if r := recover(); r != nil {
+		log.Printf("[ERROR] %v", r)
+		switch err := r.(type) {
+		case httpErr:
+			http.Error(w, err.descr, err.code)
+		default:
+			http.Error(w, fmt.Sprintf("Internal error: %v", err), http.StatusInternalServerError) //500
+		}
 	}
 }
 
 // handle http requests
 func shorten(w http.ResponseWriter, r *http.Request) {
 	// handle panic
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("[ERROR] %v", r)
-			http.Error(w, fmt.Sprintf("Internal error:\n%v", r), http.StatusInternalServerError) //500
-		}
-	}()
+	defer recover_hdl(w)
 
 	switch r.Method {
 	case "POST":

@@ -10,16 +10,6 @@ import (
 
 // helpers
 
-func createFilterWithID(id string) (bson.M, error) {
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, fmt.Errorf("invalid ID format: %v", err)
-	}
-
-	// filter to query by id
-	return bson.M{"_id": objID}, nil
-}
-
 func convertBsonToJson(bson_doc bson.M, result any) error {
 	jsonData, err := json.Marshal(bson_doc)
 	if err != nil {

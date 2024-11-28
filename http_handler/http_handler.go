@@ -161,7 +161,6 @@ func handlePUT(w http.ResponseWriter, r *http.Request) {
 		replaceWith := recordFromBody(r)
 		replaceWith.ShortCode = replaceWhat.ShortCode
 		replaceWith.UpdatedAt = time.Now()
-		replaceWith.AccessCount = replaceWhat.AccessCount + 1
 		err := db.UpdateOne(replaceWhat, replaceWith)
 		handleDBErrors(err)
 		sendJsonResponse(w, http.StatusOK, replaceWith) // 200

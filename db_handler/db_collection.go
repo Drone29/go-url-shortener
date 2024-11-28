@@ -113,15 +113,17 @@ func (collection *DBCollection) DeleteOne(filter any) error {
 	if err != nil {
 		return err
 	}
-	var res bson.M
 	ctx, cancel := getContext()
 	defer cancel()
-	err = collection.mongo_collection.FindOneAndDelete(ctx, bson_filter).Decode(&res)
+	res, err := collection.mongo_collection.DeleteOne(ctx, bson_filter)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return db_interface.ErrNoDocuments
 		}
 		return err
+	}
+	if res.DeletedCount == 0 {
+		return fmt.Errorf("no documents were deleted")
 	}
 	return nil
 }

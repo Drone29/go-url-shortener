@@ -30,10 +30,10 @@ func tokenizePath(path string) []string {
 
 func readBody(r *http.Request) []byte {
 	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
 	if err != nil {
 		panic(fmt.Sprintf("Error reading body:\n%v", err))
 	}
-	defer r.Body.Close()
 	return body
 }
 
@@ -58,12 +58,17 @@ func sendJsonResponse(w http.ResponseWriter, status int, record URLData) {
 }
 
 func handleDBErrors(err error) {
-	if err != nil {
-		if err == db_interface.ErrNoDocuments {
-			panic(httpErr{code: http.StatusNotFound, descr: "No records found"})
-		} else {
-			panic(httpErr{code: http.StatusInternalServerError, descr: fmt.Sprintf("DB error: %v", err)})
-		}
+	switch err {
+	case nil:
+		// do nothing
+	case db_interface.ErrNoDocuments:
+		panic(httpErr{
+			code:  http.StatusNotFound,
+			descr: "No records found"})
+	default:
+		panic(httpErr{
+			code:  http.StatusInternalServerError,
+			descr: fmt.Sprintf("DB error: %v", err)})
 	}
 }
 
@@ -84,16 +89,18 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 			sendJsonResponse(w, http.StatusOK, record) //200
 			return
 		case db_interface.ErrNoDocuments:
-			log.Printf("[DEBUG] Record doesn't exists, proceeding")
+			// do nothing
 		default:
-			panic(httpErr{code: http.StatusInternalServerError, descr: fmt.Sprintf("DB error: %v", err)}) // 500
+			panic(httpErr{
+				code:  http.StatusInternalServerError,
+				descr: fmt.Sprintf("DB error: %v", err)}) // 500
 		}
 
 		// set missing properties
 		record.CreatedAt = time.Now()
 		record.UpdatedAt = record.CreatedAt
 		record.ShortCode = url_generator.GenerateShortURL(shortURLLen)
-		record.AccessCount = 0
+		record.AccessCount = 0 // TODO: AccessCount is not updated in DB
 		// store new record in the db
 		log.Printf("[DEBUG] Inserting record into db...")
 		record.ID, err = db.InsertOne(record)
@@ -117,8 +124,9 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 	handleDBErrors(err)
 	// if not stats request, update count
 	if !include_ac {
-		new_rec := record
-		new_rec.AccessCount++
+		new_rec := URLData{
+			AccessCount: record.AccessCount + 1,
+		}
 		err = db.UpdateOne(record, new_rec)
 		handleDBErrors(err)
 	}

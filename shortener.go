@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"url-shortener/db_handler"
 	"url-shortener/http_handler"
 	"url-shortener/url_data"
@@ -12,32 +15,43 @@ type URLData = url_data.URLData
 
 func main() {
 
-	fmt.Println("Connecting to db...")
-	client, err := db_handler.Connect("localhost", 27017)
-	if err != nil {
-		log.Fatalf("Couldn't create DB client: %v", err)
-	}
 	defer func() {
-		if err := client.Disconnect(); err != nil {
-			log.Fatalf("Couldn't disconnect DB client: %v", err)
+		if r := recover(); r != nil {
+			fmt.Println("Recovered from panic:", r)
 		}
 	}()
 
+	fmt.Println("Connecting to db...")
+	client, err := db_handler.Connect("localhost", 27017)
+	if err != nil {
+		panic(err)
+	}
+	// disconnect db upon exit
+	db_disconnect := func() {
+		fmt.Println("Disconnecting DB...")
+		if err = client.Disconnect(); err != nil {
+			log.Printf("Couldn't disconnect DB client: %v", err)
+		}
+	}
+	defer db_disconnect()
+
 	if err := client.SelectDB("urls"); err != nil {
-		log.Fatalf("Error selecting db: %v", err)
+		panic(err)
 	}
 
 	collection, err := client.GetCollection("url_collection")
 	if err != nil {
-		log.Fatalf("Error adding collection: %v", err)
+		panic(err)
 	}
 
 	fmt.Println("Listening on port 8080...")
 
-	http_handler.Start(8080, collection)
+	go http_handler.Start(8080, collection)
 
-	fmt.Println("Stopped listening, disconnecting from db")
-
-	client.Disconnect()
-
+	// add signal handler
+	quit := make(chan os.Signal, 1)                    // create a channel for signals
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM) // relay SIGINT, SIGTERM signals to quit channel
+	// wait for signal
+	<-quit
+	http_handler.ShutDown()
 }

@@ -1,6 +1,7 @@
 package http_handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ type DB = db_interface.IDBCollection
 const shortURLLen int = 6
 
 var db DB
+var server *http.Server
 
 // helpers
 func tokenizePath(path string) []string {
@@ -212,13 +214,33 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 // start server
-func Start(port int, collection DB) error {
+func Start(port int, collection DB) {
 	if collection == nil {
-		return fmt.Errorf("db collection is nil")
+		log.Fatalf("[ERROR] db collection is nil")
 	}
 	db = collection
-	http.HandleFunc("/shorten", shorten)
-	http.HandleFunc("/shorten/", shorten)
-	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-	return nil
+	mux := http.NewServeMux()
+	// Register handler functions with the ServeMux
+	mux.HandleFunc("/shorten", shorten)
+	mux.HandleFunc("/shorten/", shorten)
+
+	server = &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
+		log.Printf("[ERROR] %v", err)
+	}
+}
+
+// shutdown server
+func ShutDown() {
+	log.Println("[DEBUG] Shutting down gracefully")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("[ERROR] %v", err)
+	}
+	log.Println("[DEBUG] Server shut down")
 }

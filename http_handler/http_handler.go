@@ -161,7 +161,7 @@ func handlePUT(w http.ResponseWriter, r *http.Request) {
 		replaceWith := recordFromBody(r)
 		replaceWith.ShortCode = replaceWhat.ShortCode
 		replaceWith.UpdatedAt = time.Now()
-		err := db.UpdateOne(replaceWhat, replaceWith)
+		err := db.UpdateOne(replaceWhat, replaceWith) //TODO: pass by pointer, set unset values
 		handleDBErrors(err)
 		sendJsonResponse(w, http.StatusOK, replaceWith) // 200
 	default:

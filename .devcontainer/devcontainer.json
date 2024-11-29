@@ -1,5 +1,5 @@
 {
-    "name": "MongoDB",
+    "name": "URL Shortener",
     "build": {
 		// Sets the run context to one level up instead of the .devcontainer folder.
 		"context": "..",

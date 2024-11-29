@@ -9,10 +9,6 @@ RUN apt update && apt install -y \
 
 # GO version
 ARG GO_VERSION="1.23.2"
-# Specify non-root user (may be overridden with '--env USER=<DESIRED USERNAME>')
-ENV USER=shortener
-# Add non-root user with default UID:GID
-RUN useradd ${USER} -m -s /bin/bash
 
 # Install GO
 RUN rm -rf /usr/local/go \
@@ -26,15 +22,8 @@ ENV PATH=$PATH:/usr/local/go/bin
 # Install Delve debugger
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
-WORKDIR /workspace
+# Set up MongoDB log directory
+RUN mkdir -p /var/log/mongodb
 
 EXPOSE 27017
 EXPOSE 8080
-
-# Run container under non-root user
-# USER ${USER}
-
-# Start from a Bash prompt
-# CMD [ "mongod" ]
-
-

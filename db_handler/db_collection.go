@@ -57,14 +57,14 @@ func (collection *DBCollection) InsertOne(doc any) (id string, err error) {
 
 // find doc with filter
 func (collection *DBCollection) FindOne(filter any, result any) error {
-	var doc bson.M
+	var res bson.M
 	bson_filter, err := bsonFromAny(filter)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := getContext()
 	defer cancel()
-	err = collection.mongo_collection.FindOne(ctx, bson_filter).Decode(&doc)
+	err = collection.mongo_collection.FindOne(ctx, bson_filter).Decode(&res)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return db_interface.ErrNoDocuments
@@ -72,7 +72,7 @@ func (collection *DBCollection) FindOne(filter any, result any) error {
 		return err
 	}
 
-	return convertBsonToJson(doc, &result)
+	return convertBsonToJson(res, &result)
 }
 
 // update doc
@@ -92,7 +92,8 @@ func (collection *DBCollection) UpdateOne(old any, new any) error {
 	}
 	ctx, cancel := getContext()
 	defer cancel()
-	res, err := collection.mongo_collection.UpdateOne(ctx, old_doc, update)
+	var res bson.M
+	err = collection.mongo_collection.FindOneAndUpdate(ctx, old_doc, update).Decode(&res)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return db_interface.ErrNoDocuments
@@ -100,11 +101,7 @@ func (collection *DBCollection) UpdateOne(old any, new any) error {
 		return err
 	}
 
-	if res.ModifiedCount == 0 {
-		return fmt.Errorf("no documents were updated")
-	}
-
-	return nil
+	return convertBsonToJson(res, &new)
 }
 
 // delete doc

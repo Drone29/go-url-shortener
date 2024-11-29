@@ -64,7 +64,7 @@ func handleDBErrors(err error) {
 	case db_interface.ErrNoDocuments:
 		panic(httpErr{
 			code:  http.StatusNotFound,
-			descr: "No records found"})
+			descr: err.Error()})
 	default:
 		panic(httpErr{
 			code:  http.StatusInternalServerError,
@@ -126,8 +126,7 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 		new_rec := URLData{
 			AccessCount: record.AccessCount + 1,
 		}
-		err = db.UpdateOne(record, new_rec)
-		handleDBErrors(err)
+		handleDBErrors(db.UpdateOne(record, new_rec))
 	}
 	sendJsonResponse(w, http.StatusOK, record) // 200
 }
@@ -159,10 +158,8 @@ func handlePUT(w http.ResponseWriter, r *http.Request) {
 			ShortCode: tokens[1],
 		}
 		replaceWith := recordFromBody(r)
-		replaceWith.ShortCode = replaceWhat.ShortCode
 		replaceWith.UpdatedAt = time.Now()
-		err := db.UpdateOne(replaceWhat, replaceWith) //TODO: pass by pointer, set unset values
-		handleDBErrors(err)
+		handleDBErrors(db.UpdateOne(replaceWhat, &replaceWith))
 		sendJsonResponse(w, http.StatusOK, replaceWith) // 200
 	default:
 		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
@@ -178,8 +175,7 @@ func handleDELETE(w http.ResponseWriter, r *http.Request) {
 		record := URLData{
 			ShortCode: short_url,
 		}
-		err := db.DeleteOne(record)
-		handleDBErrors(err)
+		handleDBErrors(db.DeleteOne(record))
 		w.WriteHeader(http.StatusNoContent) //204
 		fmt.Fprintf(w, "Deleted %s\n", short_url)
 	default:

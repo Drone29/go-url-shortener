@@ -10,4 +10,4 @@ type IDBCollection interface {
 	DeleteOne(filter any) error
 }
 
-var ErrNoDocuments = errors.New("no documents")
+var ErrNoDocuments = errors.New("no records found")

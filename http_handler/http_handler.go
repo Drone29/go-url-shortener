@@ -126,7 +126,7 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 		new_rec := URLData{
 			AccessCount: record.AccessCount + 1,
 		}
-		handleDBErrors(db.UpdateOne(record, new_rec))
+		handleDBErrors(db.UpdateOne(record, &new_rec))
 	}
 	sendJsonResponse(w, http.StatusOK, record) // 200
 }

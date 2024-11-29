@@ -55,13 +55,37 @@ func (collection *dbCollectionMock) UpdateOne(filter any, update_with any) error
 	if !ok {
 		return fmt.Errorf("invalid filter type %T", f)
 	}
-	r, ok := update_with.(URLData)
+	r, ok := update_with.(*URLData)
 	if !ok {
 		return fmt.Errorf("invalid result type %T", r)
 	}
-	for i, data := range collection.data {
+
+	update := func(first *URLData, second *URLData) {
+		if second.URL != "" {
+			first.URL = second.URL
+		}
+		if second.ShortCode != "" {
+			first.ShortCode = second.ShortCode
+		}
+		if second.ID != "" {
+			first.ID = second.ID
+		}
+		if !second.CreatedAt.IsZero() {
+			first.CreatedAt = second.CreatedAt
+		}
+		if !second.UpdatedAt.IsZero() {
+			first.UpdatedAt = second.UpdatedAt
+		}
+		if second.AccessCount != 0 {
+			first.AccessCount = second.AccessCount
+		}
+	}
+
+	for i := range collection.data {
+		data := &collection.data[i]
 		if f.URL == data.URL || f.ShortCode == data.ShortCode {
-			collection.data[i] = r
+			update(data, r)
+			update(r, data)
 			return nil
 		}
 	}
@@ -189,17 +213,25 @@ func TestGETRetrieve(t *testing.T) {
 	mock_db.data = mock_db.data[:0] //clear data
 	// add record to db
 	mock_db.data = append(mock_db.data, URLData{
-		ID:        "1",
-		URL:       "http://someurl.com",
-		ShortCode: "abc123",
+		ID:          "1",
+		URL:         "http://someurl.com",
+		ShortCode:   "abc123",
+		AccessCount: 3,
 	})
 
 	w := testHTTP("GET", "/shorten/abc123", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("invalid response code %v", w.Code)
 	}
-	if _, err := testResult(w, mock_db.data[0]); err != nil {
+	url_data, err := testResult(w, mock_db.data[0])
+	if err != nil {
 		t.Errorf("%v", err)
+	}
+	if mock_db.data[0].AccessCount != 4 {
+		t.Error("should increment access counter")
+	}
+	if url_data.AccessCount != 0 {
+		t.Error("shouldn't return access count for simple get")
 	}
 }
 
@@ -222,7 +254,7 @@ func TestGETStats(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 	if url_data.AccessCount != 3 {
-		t.Errorf("invalid response: %v", url_data)
+		t.Errorf("should return access count for stats")
 	}
 }
 
@@ -276,11 +308,18 @@ func TestPUTChangeData(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("invalid response code %v", w.Code)
 	}
-	if _, err := testResult(w, mock_db.data[0]); err != nil {
+	url_data, err := testResult(w, mock_db.data[0])
+	if err != nil {
 		t.Errorf("%v", err)
 	}
 	if mock_db.data[0].URL != "http://somenewurl" {
 		t.Errorf("data didn't change")
+	}
+	if mock_db.data[0].AccessCount != 3 {
+		t.Error("shouldn't increment access counter")
+	}
+	if url_data.AccessCount != 0 {
+		t.Error("shouln't return access counter")
 	}
 }
 

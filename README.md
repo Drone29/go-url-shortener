@@ -45,6 +45,12 @@ curl -v -X DELETE localhost:8080/shorten/fwVydA
 # < HTTP/1.1 204 No Content
 ```
 
+# Testing
+
+```sh
+go test ./...
+```
+
 ## FrontEnd
 
 There's also a simple frontend on `localhost:8080/` with 3 buttons

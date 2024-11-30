@@ -8,10 +8,7 @@ import (
 	"syscall"
 	"url-shortener/backend"
 	"url-shortener/db_handler"
-	"url-shortener/url_data"
 )
-
-type URLData = url_data.URLData
 
 func main() {
 

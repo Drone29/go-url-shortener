@@ -18,6 +18,7 @@ type URLData = url_data.URLData
 type DB = db_interface.IDBCollection
 
 const shortURLLen int = 6
+const listMaxLen int = 10
 
 var backend_db DB
 var backend_server *http.Server
@@ -50,11 +51,31 @@ func recordFromBody(r *http.Request) URLData {
 	return record
 }
 
-func sendJsonResponse(w http.ResponseWriter, status int, record URLData) {
+func sendJsonResponse(w http.ResponseWriter, status int, record any) {
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	fmt.Fprintf(w, "%s", record)
-	log.Printf("[DEBUG] Response %s", record)
+	var jsonData []byte
+	var err error
+	switch j := record.(type) {
+	case URLData:
+		jsonData, err = json.Marshal(j)
+	case []URLData:
+		jsonData, err = json.Marshal(j)
+	default:
+		panic(httpErr{
+			code:  http.StatusInternalServerError,
+			descr: "invalid data type",
+		})
+	}
+	if err != nil {
+		panic(httpErr{
+			code:  http.StatusInternalServerError,
+			descr: fmt.Sprintf("error marshaling data: %v", err),
+		})
+	}
+	// fmt.Fprintf(w, "%s", record)
+	w.Write(jsonData)
+	log.Printf("[DEBUG] Response %s", jsonData)
 }
 
 func handleDBErrors(err error) {
@@ -134,9 +155,9 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 // get list
 func getList(w http.ResponseWriter) {
 	log.Printf("[DEBUG] Obtaining list of records...")
-	records := make([]URLData, 10)
-	handleDBErrors(backend_db.FindSome(10, &records))
-	// sendJsonResponse(w, http.StatusOK, )
+	records := make([]URLData, listMaxLen)
+	handleDBErrors(backend_db.FindSome(len(records), &records))
+	sendJsonResponse(w, http.StatusOK, records)
 }
 
 // obtain registered url
@@ -145,7 +166,7 @@ func handleGET(w http.ResponseWriter, r *http.Request) {
 	tokens := tokenizePath(r.URL.Path)
 	switch len(tokens) {
 	case 1:
-		// TODO: get list of records
+		getList(w) // get list of records
 	case 2:
 		retrieveRecord(tokens[1], w, false)
 	case 3:

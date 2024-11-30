@@ -13,6 +13,13 @@ saveBtn.addEventListener("click", async() => {
     }
 
     try {
+
+         // check if entered url is valid
+        try {
+            new URL(url);
+        } catch(error) {
+            throw error
+        }
         const response = await fetch(`${backUrl}`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
@@ -21,17 +28,15 @@ saveBtn.addEventListener("click", async() => {
         if (response.ok) {
             // if 200..299
             const data = await response.json();
-            const data_str = JSON.stringify(data)
-            console.log(`Response ${response.status} ${response.statusText}\n${data_str}`);
+            console.log(`Response ${response.status} ${response.statusText}\n` + JSON.stringify(data));
             responseMsg.innerText = `Saved as ${data.shortCode}`
             urlInput.value = '' // clear input field
         } else {
-            console.error(`Error: ${response.status} ${response.statusText}`);
-            throw new Error("Failed to POST data");
+            throw new Error(await response.text());
         }
     } catch(error) {
         console.error("POST error: ", error);
-        responseMsg.innerText = "Failed to save URL";
+        responseMsg.innerText = `${error}`;
     }
 });
 
@@ -46,22 +51,21 @@ searchBtn.addEventListener("click", async() => {
         const response = await fetch(`${backUrl}/${key}`);
         if (response.ok) {
             const data = await response.json();
-            const data_str = JSON.stringify(data)
-            console.log(`Response ${response.status} ${response.statusText}\n${data_str}`);
+            console.log(`Response ${response.status} ${response.statusText}\n` + JSON.stringify(data));
             // redirect to url
             if (data.url) {
                 // open in a new window
                 window.open(data.url, '_blank');
                 responseMsg.innerText = `${data.url} opened in a new window`;
             } else {
-                responseMsg.innerText = "URL not found";
+                throw new Error("Invalid response from backend");
             }
+            urlInput.value = '' // clear input field
         } else {
-            console.error(`Error: ${response.status} ${response.statusText}`);
-            throw new Error("Failed to GET data");
+            throw new Error(await response.text());
         }
     } catch(error) {
         console.error("GET error: ", error);
-        responseMsg.innerText = "Failed to fetch URL";
+        responseMsg.innerText = `${error}`;
     }
 });

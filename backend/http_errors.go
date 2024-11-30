@@ -1,4 +1,4 @@
-package http_handler
+package backend
 
 type httpErr struct {
 	code  int

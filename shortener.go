@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"url-shortener/backend"
 	"url-shortener/db_handler"
-	"url-shortener/http_handler"
 	"url-shortener/url_data"
 )
 
@@ -46,12 +46,12 @@ func main() {
 
 	fmt.Println("Listening on port 8080...")
 
-	go http_handler.Start(8080, collection)
+	go backend.StartBackend(8080, collection)
 
 	// add signal handler
 	quit := make(chan os.Signal, 1)                    // create a channel for signals
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM) // relay SIGINT, SIGTERM signals to quit channel
 	// wait for signal
 	<-quit
-	http_handler.ShutDown()
+	backend.ShutDownBackend()
 }

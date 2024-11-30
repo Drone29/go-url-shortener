@@ -1,4 +1,4 @@
-package http_handler
+package backend
 
 import (
 	"context"
@@ -19,8 +19,8 @@ type DB = db_interface.IDBCollection
 
 const shortURLLen int = 6
 
-var db DB
-var server *http.Server
+var backend_db DB
+var backend_server *http.Server
 
 // helpers
 func tokenizePath(path string) []string {
@@ -81,7 +81,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		// check if such record already exists
 		// use parsed record as both filter and result
 		log.Printf("[DEBUG] Looking for record in db...")
-		err := db.FindOne(record, &record)
+		err := backend_db.FindOne(record, &record)
 
 		switch err {
 		case nil:
@@ -102,7 +102,7 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		record.ShortCode = url_generator.GenerateShortURL(shortURLLen)
 		// store new record in the db
 		log.Printf("[DEBUG] Inserting record into db...")
-		record.ID, err = db.InsertOne(record)
+		record.ID, err = backend_db.InsertOne(record)
 		handleDBErrors(err)
 		// return response
 		sendJsonResponse(w, http.StatusCreated, record) //201
@@ -118,7 +118,7 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 	}
 	// retrieve short url from db
 	log.Printf("[DEBUG] Looking for record in db...")
-	err := db.FindOne(record, &record)
+	err := backend_db.FindOne(record, &record)
 	record.IncludeAccessCountInJSON(include_ac)
 	handleDBErrors(err)
 	// if not stats request, update count
@@ -126,7 +126,7 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 		new_rec := URLData{
 			AccessCount: record.AccessCount + 1,
 		}
-		handleDBErrors(db.UpdateOne(record, &new_rec))
+		handleDBErrors(backend_db.UpdateOne(record, &new_rec))
 	}
 	sendJsonResponse(w, http.StatusOK, record) // 200
 }
@@ -159,7 +159,7 @@ func handlePUT(w http.ResponseWriter, r *http.Request) {
 		}
 		replaceWith := recordFromBody(r)
 		replaceWith.UpdatedAt = time.Now()
-		handleDBErrors(db.UpdateOne(replaceWhat, &replaceWith))
+		handleDBErrors(backend_db.UpdateOne(replaceWhat, &replaceWith))
 		sendJsonResponse(w, http.StatusOK, replaceWith) // 200
 	default:
 		http.Error(w, fmt.Sprintf("Not found %s", r.URL.Path), http.StatusNotFound) //404
@@ -175,7 +175,7 @@ func handleDELETE(w http.ResponseWriter, r *http.Request) {
 		record := URLData{
 			ShortCode: short_url,
 		}
-		handleDBErrors(db.DeleteOne(record))
+		handleDBErrors(backend_db.DeleteOne(record))
 		w.WriteHeader(http.StatusNoContent) //204
 		fmt.Fprintf(w, "Deleted %s\n", short_url)
 	default:
@@ -216,32 +216,32 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 // start server
-func Start(port int, collection DB) {
+func StartBackend(port int, collection DB) {
 	if collection == nil {
 		log.Fatalf("[ERROR] db collection is nil")
 	}
-	db = collection
+	backend_db = collection
 	mux := http.NewServeMux()
 	// Register handler functions with the ServeMux
 	mux.HandleFunc("/shorten", shorten)
 	mux.HandleFunc("/shorten/", shorten)
 
-	server = &http.Server{
+	backend_server = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: mux,
 	}
 
-	if err := server.ListenAndServe(); err != nil {
+	if err := backend_server.ListenAndServe(); err != nil {
 		log.Printf("[ERROR] %v", err)
 	}
 }
 
 // shutdown server
-func ShutDown() {
+func ShutDownBackend() {
 	log.Println("[DEBUG] Shutting down gracefully")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	if err := backend_server.Shutdown(ctx); err != nil {
 		log.Printf("[ERROR] %v", err)
 	}
 	log.Println("[DEBUG] Server shut down")

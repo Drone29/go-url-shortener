@@ -1,4 +1,4 @@
-package http_handler
+package backend
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ var mock_db = dbCollectionMock{}
 // helpers
 
 func testHTTP(method, url, body string) *httptest.ResponseRecorder {
-	db = &mock_db
+	backend_db = &mock_db
 
 	w := httptest.NewRecorder()
 	// mock request

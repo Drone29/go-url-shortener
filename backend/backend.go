@@ -225,6 +225,9 @@ func Start(port int, collection DB) {
 	// Register handler functions with the ServeMux
 	mux.HandleFunc("/shorten", shorten)
 	mux.HandleFunc("/shorten/", shorten)
+	// Render front html page
+	fs := http.FileServer(http.Dir("./frontend"))
+	mux.Handle("/", fs)
 
 	backend_server = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),

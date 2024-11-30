@@ -58,9 +58,9 @@ func sendJsonResponse(w http.ResponseWriter, status int, record any) {
 	var err error
 	switch j := record.(type) {
 	case URLData:
-		jsonData, err = json.Marshal(j)
+		jsonData, err = json.Marshal(&j)
 	case []URLData:
-		jsonData, err = json.Marshal(j)
+		jsonData, err = json.Marshal(&j)
 	default:
 		panic(httpErr{
 			code:  http.StatusInternalServerError,
@@ -165,10 +165,12 @@ func handleGET(w http.ResponseWriter, r *http.Request) {
 
 	tokens := tokenizePath(r.URL.Path)
 	switch len(tokens) {
-	case 1:
-		getList(w) // get list of records
 	case 2:
-		retrieveRecord(tokens[1], w, false)
+		if tokens[1] == "list" {
+			getList(w)
+		} else {
+			retrieveRecord(tokens[1], w, false)
+		}
 	case 3:
 		if tokens[2] == "stats" {
 			retrieveRecord(tokens[1], w, true) // stats

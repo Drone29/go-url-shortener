@@ -161,6 +161,44 @@ func TestGETStats(t *testing.T) {
 	}
 }
 
+func TestGETList(t *testing.T) {
+	mock_db.data = mock_db.data[:0] //clear data
+	mock_db.data = append(mock_db.data, URLData{
+		ID:          "1",
+		URL:         "http://someurl.com",
+		ShortCode:   "abc123",
+		AccessCount: 3,
+	})
+	mock_db.data = append(mock_db.data, URLData{
+		ID:          "2",
+		URL:         "http://someotherurl.com",
+		ShortCode:   "qwe345",
+		AccessCount: 6,
+	})
+	w := testHTTP("GET", "/shorten/list", "")
+	if w.Code != http.StatusOK {
+		t.Errorf("invalid response code %v", w.Code)
+	}
+
+	body, err := io.ReadAll(w.Body)
+	if err != nil {
+		t.Errorf("io error %v", err)
+	}
+	var result []URLData
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		t.Errorf("json error %v", err)
+	}
+	if len(result) != 2 {
+		t.Error("invalid len returned")
+	}
+	res_str := fmt.Sprintf("%s", result)
+	ref_str := fmt.Sprintf("%s", mock_db.data)
+	if res_str != ref_str {
+		t.Errorf("invalid response: %s", res_str)
+	}
+}
+
 // PUT
 func TestPUTInvalidURL(t *testing.T) {
 	if w := testHTTP("PUT", "/shorten/", ""); w.Code != http.StatusNotFound {

@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"errors"
 	"fmt"
 	"url-shortener/db_interface"
 )
@@ -103,7 +102,12 @@ func (collection *dbCollectionMock) DeleteOne(filter any) error {
 }
 
 // find some records
-// TODO: do
 func (collection *dbCollectionMock) FindSome(limit int, result any) error {
-	return errors.New("Not implemented")
+	f, ok := result.(*[]URLData)
+	if !ok {
+		return fmt.Errorf("invalid result type %T", f)
+	}
+	lim := min(limit, cap(collection.data))
+	*f = collection.data[:lim]
+	return nil
 }

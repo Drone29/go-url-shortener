@@ -29,27 +29,12 @@ func (client *DBClient) GetDBNames() (dbs []string, err error) {
 	return client.handle.ListDatabaseNames(ctx, bson.D{})
 }
 
-// ping
-func (client *DBClient) Ping() error {
-	ctx, cancel := getContext()
-	defer cancel()
-	return client.handle.Ping(ctx, nil)
-}
-
 // select a db, create one if it doesn't exist
 func (client *DBClient) SelectDB(name string) error {
 	if client.db = client.handle.Database(name); client.db == nil {
 		return errors.New("Unable to select db " + name)
 	}
 	return nil
-}
-
-// get db name
-func (client *DBClient) GetDBName() string {
-	if client.db != nil {
-		return client.db.Name()
-	}
-	return ""
 }
 
 // get collection (create if doesn't exist)

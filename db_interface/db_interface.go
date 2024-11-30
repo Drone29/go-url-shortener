@@ -8,6 +8,7 @@ type IDBCollection interface {
 	FindOne(filter any, result any) error
 	UpdateOne(filter any, update_with any) error
 	DeleteOne(filter any) error
+	FindSome(limit int, results any) error
 }
 
 var ErrNoDocuments = errors.New("no records found")

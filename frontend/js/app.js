@@ -1,8 +1,9 @@
-const backUrl = "/shorten"
-const saveBtn = document.getElementById("saveBtn")
-const searchBtn = document.getElementById("searchBtn")
-const urlInput = document.getElementById("urlInput")
-const responseMsg = document.getElementById("responseMsg")
+const backUrl = "/shorten";
+const saveBtn = document.getElementById("saveBtn");
+const searchBtn = document.getElementById("searchBtn");
+const listBtn = document.getElementById("listBtn");
+const urlInput = document.getElementById("urlInput");
+const responseMsg = document.getElementById("responseMsg");
 
 // handle save button
 saveBtn.addEventListener("click", async() => {
@@ -13,7 +14,6 @@ saveBtn.addEventListener("click", async() => {
     }
 
     try {
-
          // check if entered url is valid
         try {
             new URL(url);

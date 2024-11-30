@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // MongoDB collection handler type (implements IDBCollection)
@@ -122,5 +123,27 @@ func (collection *DBCollection) DeleteOne(filter any) error {
 	if res.DeletedCount == 0 {
 		return fmt.Errorf("no documents were deleted")
 	}
+	return nil
+}
+
+// find some (result is a pointer to slice)
+func (collection *DBCollection) FindSome(limit int, result any) error {
+	opts := options.Find().SetLimit(int64(limit))
+	ctx, cancel := getContext()
+	defer cancel()
+	cursor, err := collection.mongo_collection.Find(ctx, bson.M{}, opts)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return db_interface.ErrNoDocuments
+		}
+		return err
+	}
+
+	defer cursor.Close(ctx)
+
+	if err := cursor.All(ctx, result); err != nil {
+		return err
+	}
+
 	return nil
 }

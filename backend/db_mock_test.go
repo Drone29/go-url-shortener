@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"errors"
 	"fmt"
 	"url-shortener/db_interface"
 )
@@ -99,4 +100,10 @@ func (collection *dbCollectionMock) DeleteOne(filter any) error {
 		}
 	}
 	return db_interface.ErrNoDocuments
+}
+
+// find some records
+// TODO: do
+func (collection *dbCollectionMock) FindSome(limit int, result any) error {
+	return errors.New("Not implemented")
 }

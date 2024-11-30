@@ -131,11 +131,21 @@ func retrieveRecord(short_url string, w http.ResponseWriter, include_ac bool) {
 	sendJsonResponse(w, http.StatusOK, record) // 200
 }
 
+// get list
+func getList(w http.ResponseWriter) {
+	log.Printf("[DEBUG] Obtaining list of records...")
+	records := make([]URLData, 10)
+	handleDBErrors(backend_db.FindSome(10, &records))
+	// sendJsonResponse(w, http.StatusOK, )
+}
+
 // obtain registered url
 func handleGET(w http.ResponseWriter, r *http.Request) {
 
 	tokens := tokenizePath(r.URL.Path)
 	switch len(tokens) {
+	case 1:
+		// TODO: get list of records
 	case 2:
 		retrieveRecord(tokens[1], w, false)
 	case 3:

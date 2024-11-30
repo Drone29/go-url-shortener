@@ -216,7 +216,7 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 // start server
-func StartBackend(port int, collection DB) {
+func Start(port int, collection DB) {
 	if collection == nil {
 		log.Fatalf("[ERROR] db collection is nil")
 	}
@@ -237,7 +237,7 @@ func StartBackend(port int, collection DB) {
 }
 
 // shutdown server
-func ShutDownBackend() {
+func ShutDown() {
 	log.Println("[DEBUG] Shutting down gracefully")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

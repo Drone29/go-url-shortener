@@ -46,12 +46,12 @@ func main() {
 
 	fmt.Println("Listening on port 8080...")
 
-	go backend.StartBackend(8080, collection)
+	go backend.Start(8080, collection)
 
 	// add signal handler
 	quit := make(chan os.Signal, 1)                    // create a channel for signals
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM) // relay SIGINT, SIGTERM signals to quit channel
 	// wait for signal
 	<-quit
-	backend.ShutDownBackend()
+	backend.ShutDown()
 }

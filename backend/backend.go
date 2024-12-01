@@ -73,7 +73,6 @@ func sendJsonResponse(w http.ResponseWriter, status int, record any) {
 			descr: fmt.Sprintf("error marshaling data: %v", err),
 		})
 	}
-	// fmt.Fprintf(w, "%s", record)
 	w.Write(jsonData)
 	log.Printf("[DEBUG] Response %s", jsonData)
 }
@@ -103,20 +102,13 @@ func handlePOST(w http.ResponseWriter, r *http.Request) {
 		// use parsed record as both filter and result
 		log.Printf("[DEBUG] Looking for record in db...")
 		err := backend_db.FindOne(record, &record)
-
-		switch err {
-		case nil:
+		if err == nil {
 			log.Printf("[DEBUG] Record already exists")
 			sendJsonResponse(w, http.StatusOK, record) //200
 			return
-		case db_interface.ErrNoDocuments:
-			// do nothing
-		default:
-			panic(httpErr{
-				code:  http.StatusInternalServerError,
-				descr: fmt.Sprintf("DB error: %v", err)}) // 500
+		} else if err != db_interface.ErrNoDocuments {
+			handleDBErrors(err)
 		}
-
 		// set missing properties
 		record.CreatedAt = time.Now()
 		record.UpdatedAt = record.CreatedAt

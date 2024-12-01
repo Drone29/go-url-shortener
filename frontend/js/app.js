@@ -22,37 +22,39 @@ async function genericRequest(url, method, body = null) {
     return data
 }
 
-// handle save button
-saveBtn.addEventListener("click", async() => {
-    const url = urlInput.value;
-    if (!url) {
-        alert("Please enter a valid URL");
-        return;
-    }
+async function errorHandler(func) {
     try {
-        // check if entered url is valid
-        try {
-            new URL(url);
-        } catch(error) {
-            throw error;
-        }
-        const data = await genericRequest(`${backUrl}`, "POST", JSON.stringify({url}));
-        responseMsg.innerText = `Saved as ${data.shortCode}`
-        urlInput.value = '' // clear input field
+        await func()
     }catch(error){
         responseMsg.innerText = `${error}`;
         console.error("Error: ", error);
     }
-});
+}
+
+// handle save button
+saveBtn.addEventListener("click", () => 
+    errorHandler(async() => {
+        const url = urlInput.value;
+        if (!url) {
+            alert("Please enter a valid URL");
+            return;
+        }
+        // check if entered url is valid
+        new URL(url);
+
+        const data = await genericRequest(`${backUrl}`, "POST", JSON.stringify({url}));
+        responseMsg.innerText = `Saved as ${data.shortCode}`
+        urlInput.value = '' // clear input field
+}));
 
 // handle search & redirect button
-searchBtn.addEventListener("click", async() => {
-    const key = urlInput.value;
-    if (!key) {
-        alert("Please enter a valid key");
-        return;
-    }
-    try {
+searchBtn.addEventListener("click", () =>
+    errorHandler(async() => {
+        const key = urlInput.value;
+        if (!key) {
+            alert("Please enter a valid key");
+            return;
+        }
         const data = await genericRequest(`${backUrl}/${key}`, "GET");
         // redirect to url
         if (data.url) {
@@ -63,15 +65,11 @@ searchBtn.addEventListener("click", async() => {
             throw new Error("Invalid response from backend");
         }
         urlInput.value = '' // clear input field
-    }catch(error){
-        responseMsg.innerText = `${error}`;
-        console.error("Error: ", error);
-    }
-});
+}));
 
 // handle list
-listBtn.addEventListener("click", async() => {
-    try {
+listBtn.addEventListener("click", () =>
+    errorHandler(async() => {
         const data = await genericRequest(`${backUrl}/list`, "GET");
         let result = "List:\n";
         for (let i = 0; i < data.length; i++) {
@@ -79,8 +77,4 @@ listBtn.addEventListener("click", async() => {
             result += `${element.shortCode}: ${element.url}\n`;
         }
         responseMsg.innerText = result;
-    }catch(error) {
-        responseMsg.innerText = `${error}`;
-        console.error("Error: ", error);
-    }
-});
+}));
